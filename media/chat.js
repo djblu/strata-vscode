@@ -41,11 +41,34 @@ function formatted(item) {
 let editing=false,previousDraft='';
 function endEdit(restoreDraft=false) {if(restoreDraft)$('prompt').value=previousDraft;editing=false;previousDraft='';$('edit-notice').hidden=true;$('send').title='Send message (Enter)';}
 $('cancel-edit').onclick=()=>endEdit(true);
+function activitySummary(label,kind='thought') {
+  const summary=document.createElement('summary');summary.className='activity-summary';summary.title=label;
+  const icon=document.createElement('span');icon.className='activity-icon';
+  const paths={read:'<path d="M12 5c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1Zm0 0v14"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',write:'<path d="m4 16 12-12 4 4L8 20H4v-4ZM14 6l4 4"/>',command:'<path d="m4 5 7 7-7 7m9 0h7"/>',thought:'<path d="M8 17h8m-7 4h6M8 14a7 7 0 1 1 8 0v3H8Z"/>'};
+  icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths[kind]+'</svg>';
+  const text=document.createElement('span');text.className='activity-label';text.textContent=label;
+  const arrow=document.createElement('span');arrow.className='activity-chevron';arrow.textContent='⌄';
+  summary.append(icon,text,arrow);return summary;
+}
+function toolSummary(t) {
+  const name=String(t.name||'Tool');const args=t.args||{};const done=t.state==='done';
+  let kind='command',verb=t.verb||name,target=t.target||'';
+  if(/search|grep|glob|find/i.test(name)){kind='search';verb=done?'Searched for':'Searching for';target=args.pattern||args.query||target;}
+  else if(/read|view|list/i.test(name)){kind='read';verb=done?'Read':'Reading';target=args.file_path||args.path||target;}
+  else if(/write|edit|patch/i.test(name)){kind='write';verb=done?'Edited':'Editing';target=args.file_path||args.path||target;}
+  else {target=args.command||args.cmd||target;}
+  if(kind==='read'||kind==='write')target=String(target).split(/[\\/]/).pop();
+  let label=[verb,target].filter(Boolean).join(' ');
+  if(t.state==='proposed')label+=' · Approval needed';
+  if(t.state==='denied')label+=' · Denied';
+  if(t.state==='error')label+=' · Failed';
+  return activitySummary(label,kind);
+}
 function entry(role,text,timestamp) {
   formatted(last);
   const reasoning=role==='reasoning';
   const box=document.createElement(reasoning?'details':'div');box.className=`entry ${role}`;
-  const title=document.createElement(reasoning?'summary':'label');title.textContent=reasoning?(working?'Thinking…':'Reasoning'):role;
+  const title=reasoning?activitySummary(working?'Thinking…':'Reasoning'):document.createElement('label');if(!reasoning)title.textContent=role;
   const body=document.createElement('div');body.className='content';body.textContent=text;
   box.append(title,body);
   if(role==='user'){
@@ -69,7 +92,7 @@ function busy(value) {
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
   if(!value)formatted(last);
-  if(!value)for(const title of history.querySelectorAll('.reasoning summary'))title.textContent='Reasoning';
+  if(!value)for(const title of history.querySelectorAll('.reasoning .activity-label'))title.textContent='Reasoning';
 }
 window.addEventListener('message',({data:m})=>{
   if(m.type!=='chunk')flush();
@@ -94,7 +117,7 @@ window.addEventListener('message',({data:m})=>{
     if(t.state==='proposed')card.open=true;
     else if(card.dataset?.state==='proposed')card.open=false;
     card.dataset.state=t.state;
-    card.replaceChildren();const title=document.createElement('summary');title.textContent=`${t.name} · ${t.state}`;
+    card.replaceChildren();const title=toolSummary(t);
     const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');card.append(title,preview);
     if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
     scroll();
