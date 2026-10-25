@@ -9,22 +9,43 @@ let shutdown;
 const {updateContext,externalURL}=require('./context-state.cjs');
 function activate(context) {
   let view, child, ready, busy = false, closing = false;
-  let chatId = context.workspaceState.get('chatId') || randomUUID();
-  let contextInfo = {...context.workspaceState.get('contextInfo', {}), compacting:false};
+  const store=new (require('./chat-store.cjs').ChatStore)(context.workspaceState);
+  let chatId = context.workspaceState.get('activeChat') || context.workspaceState.get('chatId') || randomUUID();
+  const saved=store.load(chatId);
+  let contextInfo = {...(saved?.contextInfo || context.workspaceState.get('contextInfo', {})), compacting:false};
   function contextFrame(f) {const next=updateContext(contextInfo,f);if(next.used===contextInfo.used&&next.max===contextInfo.max&&next.compacting===contextInfo.compacting)return;contextInfo=next;post({type:'contextInfo',...contextInfo});persist();}
-  let transcript = context.workspaceState.get('transcript') || [];
+  let transcript = saved?.transcript || context.workspaceState.get('transcript') || [];
   let timer;
   const pending = new Map();
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
   const post = m => view?.webview.postMessage(m);
+  function saveChat() {return store.save({id:chatId,transcript,contextInfo});}
   function persist() {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      context.workspaceState.update('transcript', transcript);
-      context.workspaceState.update('chatId', chatId);
-      context.workspaceState.update('contextInfo', contextInfo);
-    }, 1000);
+    if(timer)return;
+    timer=setTimeout(()=>{timer=undefined;saveChat().catch(e=>vscode.window.showErrorMessage(`Strata could not save chat: ${e.message}`));},1000);
+  }
+  async function switchChat(id) {
+    if(busy)throw Error('Stop the current turn before switching chats');
+    busy=true;post({type:'busy',value:true});
+    try {
+      clearTimeout(timer);timer=undefined;await saveChat();
+      const target=id?store.load(id):null;if(id&&!target)throw Error('Chat not found');
+      chatId=target?.id||randomUUID();transcript=target?.transcript||[];contextInfo={...target?.contextInfo,compacting:false};pending.clear();
+      await saveChat();post({type:'restore',transcript,busy:false});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});
+    } finally {busy=false;post({type:'busy',value:false});}
+  }
+  async function chooseChat() {
+    if(busy)throw Error('Stop the current turn before switching chats');
+    await saveChat();
+    const chosen=await vscode.window.showQuickPick(store.list().map(item=>({label:item.title,description:item.id===chatId?'Current chat':'',detail:new Date(item.updatedAt).toLocaleString(),id:item.id})),{title:'Strata — Saved chats in this workspace',placeHolder:'Search conversations to resume'});
+    if(chosen&&chosen.id!==chatId)await switchChat(chosen.id);
+  }
+  async function renameChat() {
+    if(busy)throw Error('Wait for the current turn to finish before renaming');
+    await saveChat();const id=chatId;
+    const name=await vscode.window.showInputBox({title:'Rename chat',value:store.list().find(item=>item.id===id)?.title,validateInput:value=>!value.trim()?'Enter a title':value.length>120?'Use 120 characters or fewer':undefined});
+    if(name?.trim())await store.rename(id,name.trim());
   }
   function add(role, text) {
     transcript.push({role, text});
@@ -101,9 +122,7 @@ function activate(context) {
     closing = true;
     if (child) { const p = child; write({type: 'close'}); setTimeout(() => {if (p.exitCode === null) p.kill('SIGTERM');}, 25000).unref(); }
     clearTimeout(timer);
-    await context.workspaceState.update('contextInfo', contextInfo);
-    await context.workspaceState.update('transcript', transcript);
-    await context.workspaceState.update('chatId', chatId);
+    timer=undefined;await saveChat();
   };
   const safe = fn => async (...args) => {try {await fn(...args);} catch(e) {vscode.window.showErrorMessage(`Strata: ${e.message}`);}};
   context.subscriptions.push(vscode.commands.registerCommand('strata.setApiKey', safe(async () => {
@@ -128,7 +147,7 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {persist();post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
         await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -140,7 +159,9 @@ function activate(context) {
       }
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
-      else if (m.type === 'new') {if (busy) throw Error('Stop the current turn first'); chatId = randomUUID(); contextInfo={};post({type:'contextInfo',...contextInfo}); transcript = []; pending.clear(); persist(); post({type:'restore',transcript,busy});}
+      else if (m.type === 'new') await switchChat();
+      else if (m.type === 'chats') await chooseChat();
+      else if (m.type === 'rename') await renameChat();
       else if (m.type === 'send') {
         if (busy) return;
         if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');

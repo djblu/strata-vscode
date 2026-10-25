@@ -23,7 +23,7 @@ function entry(role,text) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
 function busy(value) {
-  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
+  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   document.body.classList.toggle('working',value);
   if(!value)formatted(last);
   if(!value)for(const title of history.querySelectorAll('.reasoning summary'))title.textContent='Reasoning';
@@ -58,5 +58,5 @@ window.addEventListener('message',({data:m})=>{
 $('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';});
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working)$('send').click();}});
-for(const type of ['new','stop','key','changes'])$(type).onclick=()=>vscode.postMessage({type});
+for(const type of ['new','stop','key','changes','chats','rename'])$(type).onclick=()=>vscode.postMessage({type});
 vscode.postMessage({type:'loaded'});

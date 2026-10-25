@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install on this server
 
 1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.3.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
+2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.4.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
 3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
 4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
 
@@ -20,7 +20,8 @@ The required Node 24 runtime and pinned dsh package have already been installed 
 - **Full control** mode runs commands and file changes without approval prompts, using the upstream bypass mode. The default remains Ask before actions.
 - **Read only** mode, using the upstream harness's plan permission mode.
 - **Stop** cancels the harness turn, including pending tools.
-- Resume the last chat when reopening the same workspace; **New chat** starts a fresh harness session.
+- **Chats** opens a searchable list of saved conversations for this workspace. Select one to resume its original harness session. Titles come from the first prompt; use **Rename current chat** (✎) to change a title. **New chat** preserves the old conversation.
+- Chat display history and context usage are saved separately per conversation, approximately once per second during activity and on switching/closing. Your previously saved current conversation is migrated automatically. Wait for a turn to finish or stop it before switching.
 - **Strata: Add Editor Selection** adds selected text to the prompt.
 - **Review changes** opens VS Code Source Control for native Git diff review.
 - Blue external links open in your browser. HTTP(S) Markdown links and plain URLs are supported.
@@ -50,7 +51,7 @@ The bridge checks for a `node_modules` directory inside the dsh package. When np
 
 Workspace Trust is required. Manual mode uses upstream permission prompts; it is **not an OS sandbox**. Approving a shell command permits that command's effects. Work in a Git checkout and review tool previews.
 
-API credentials never enter the webview or command-line arguments. The adapter receives them over private stdin. Harness data is kept in the extension's global storage under a workspace-specific directory. The display transcript is limited to recent content; the harness retains the durable session. Starting a new chat does not delete old harness sessions.
+API credentials never enter the webview or command-line arguments. The adapter receives them over private stdin. Harness data is kept in the extension's global storage under a workspace-specific directory. The display transcript is limited to recent content; the harness retains the durable session. Starting a new chat does not delete old harness sessions. The saved display contains the recent transcript (up to roughly 100 entries / 250,000 characters); the underlying harness session retains its own history and compaction state. Chats are local to this VS Code workspace/server, not cloud-synced. Conversations already discarded by earlier extension versions cannot be reconstructed by this migration.
 
 ## Development
 
