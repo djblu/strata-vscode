@@ -118,10 +118,16 @@ function activate(context) {
     const nonce = randomUUID().replaceAll('-', '');
     const script = v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.js'));
     v.webview.html = require('./ui.cjs')({nonce, script,
+      highlight: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'code-blocks.js')),
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {post({type:'restore',transcript,busy}); for (const tool of pending.values()) post({type:'tool',tool});}
+      else if (m.type === 'copyCode') {
+        if (typeof m.text !== 'string' || m.text.length > 1000000 || typeof m.id !== 'number') throw Error('Invalid clipboard request');
+        try {await vscode.env.clipboard.writeText(m.text); post({type:'copied',id:m.id});}
+        catch {post({type:'copied',id:m.id,error:true});}
+      }
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
       else if (m.type === 'new') {if (busy) throw Error('Stop the current turn first'); chatId = randomUUID(); transcript = []; pending.clear(); persist(); post({type:'restore',transcript,busy});}

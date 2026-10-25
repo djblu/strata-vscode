@@ -2,7 +2,7 @@
   "name": "strata-harness",
   "displayName": "Strata Harness",
   "description": "Use the Strata coding harness in a VS Code sidebar.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "djblu",
   "license": "UNLICENSED",
   "private": true,
@@ -31,7 +31,9 @@
   },
   "scripts": {
     "test": "node --test",
-    "package": "vsce package --allow-missing-repository"
+    "package": "vsce package --allow-missing-repository",
+    "build": "esbuild src/code-blocks.cjs --bundle --minify --format=iife --global-name=CodeBlocks --outfile=media/code-blocks.js",
+    "vscode:prepublish": "npm run build"
   },
   "contributes": {
     "commands": [
@@ -118,6 +120,9 @@
     }
   },
   "devDependencies": {
-    "@vscode/vsce": "^3.6.0"
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.28.2",
+    "highlight.js": "^11.12.0",
+    "jsdom": "^30.1.3"
   }
 }

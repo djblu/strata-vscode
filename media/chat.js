@@ -5,24 +5,33 @@ const history = $('history'), cards = new Map();
 let last, buffer = '', bufferRole, scheduled, working = false, follow = true;
 function scroll() {if(follow)history.scrollTop=history.scrollHeight;}
 history.addEventListener('scroll',()=>{follow=history.scrollHeight-history.scrollTop-history.clientHeight<80;});
+const copies=new Map();let copyId=0;
+function formatted(item) {
+  if(item && ['assistant','reasoning'].includes(item.role) && typeof CodeBlocks!=='undefined') CodeBlocks.render(item.body,item.text,(text,button)=>{
+    const id=++copyId;copies.set(id,button);button.disabled=true;vscode.postMessage({type:'copyCode',id,text});
+  });
+}
 function entry(role,text) {
+  formatted(last);
   const reasoning=role==='reasoning';
   const box=document.createElement(reasoning?'details':'div');box.className=`entry ${role}`;
   const title=document.createElement(reasoning?'summary':'label');title.textContent=reasoning?(working?'Thinking…':'Reasoning'):role;
   const body=document.createElement('div');body.className='content';body.textContent=text;
-  box.append(title,body);history.append(box);last={role,body};
+  box.append(title,body);history.append(box);last={role,body,text};formatted(last);
   while(history.children.length>120)history.firstChild.remove();
   scroll();
 }
-function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.body.append(document.createTextNode(buffer));buffer='';scroll();}
+function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
 function busy(value) {
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   document.body.classList.toggle('working',value);
+  if(!value)formatted(last);
   if(!value)for(const title of history.querySelectorAll('.reasoning summary'))title.textContent='Reasoning';
 }
 window.addEventListener('message',({data:m})=>{
   if(m.type!=='chunk')flush();
-  if(m.type==='restore'){history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text);scroll();}
+  if(m.type==='copied'){const button=copies.get(m.id);if(button){button.disabled=false;button.textContent=m.error?'Try again':'Copied!';copies.delete(m.id);setTimeout(()=>{button.textContent='Copy';},1800);}}
+  else if(m.type==='restore'){history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text);scroll();}
   else if(m.type==='entry')entry(m.role,m.text);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
