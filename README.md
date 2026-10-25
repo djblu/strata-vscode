@@ -1,23 +1,25 @@
 # Strata Harness for VS Code
 
-Private preview extension for using Strata's coding harness from a VS Code sidebar. Windows VS Code connects to the Linux server through Remote SSH; the extension and harness run on that server.
+Private preview extension for using Strata's coding harness from a VS Code sidebar. The extension and coding harness run beside your workspace, locally or on a Remote SSH host; model inference stays on your configured API server.
 
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.22.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.23.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
 Use **gear → Change connection**, or **Strata: Connect to Server**, to repeat setup. Keys are stored in SecretStorage and never shown in chat. Cancelling or failing setup preserves the previous saved connection. Existing sessions and this server's existing connection migrate without re-entering the key. Model discovery verifies access to the models endpoint; inference errors are still reported when a turn runs.
 
-The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. Automatic runtime setup supports Windows, Linux and macOS x64/ARM64 hosts. Windows requires Git for Windows on PATH and Windows PowerShell; Unix hosts require Git and tar. All require access to nodejs.org, GitHub and npm. Windows uses the verified Node ZIP, PowerShell extraction and a directory junction for harness dependencies. Linux x64 clean installation and a live model response have been verified; Windows and macOS/ARM64 have automated path tests but have not been exercised on hardware here.
+The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. New Linux x64, Windows x64 and macOS ARM64 hosts download one prebuilt runtime from the public [runtime downloads repository](https://github.com/djblu/strata-runtimes). Downloads are streamed to disk, checked against the size and SHA-256 pinned in this extension, then extracted into a staging folder before activation. The host needs HTTPS access to GitHub release downloads and `tar` (included with modern Windows). Git and npm are not needed for the prebuilt setup itself; coding tasks may still need Git.
+
+Runtime packages have their own version and remain in extension global storage across extension updates. Existing working source installations are reused. Other supported x64/ARM64 platforms use the source installer, requiring Git, tar (or Windows PowerShell), and access to nodejs.org, GitHub and npm. A failed or corrupt prebuilt download reports an error and can be retried; it never silently runs an unverified package. Windows installations automatically disable optional subagent model selection; ordinary subagents retain the parent model.
 
 Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.22.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.23.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
@@ -82,3 +84,9 @@ The + menu inserts context into your draft for review before sending. File/folde
 The bottom status line shimmers throughout an active turn, including thinking and tool activity, and returns to normal when idle. Reduced-motion settings disable the animation.
 
 Harness installation reports elapsed time and completed npm registry requests every five seconds. It has a five-minute timeout; npm diagnostics are saved under `runtime-v1/harness/install-logs` in extension storage, with the full path shown on failure. Retry **Connect to Strata** after resolving network issues; completed Node downloads are reused.
+
+## Building runtime releases
+
+The public `djblu/strata-runtimes` repository builds native bundles with GitHub Actions. Each build starts from the pinned upstream versions and runs session creation plus a streamed response against a loopback mock model API before packaging. It excludes Git metadata, installer logs and the nonportable dependency junction. The installer recreates that junction at the destination. No extension credentials, profiles, sessions or model weights are packaged.
+
+Publish the `.tar.gz` archives as immutable assets of a versioned runtime release, then update `runtime-manifest.json` with each asset URL, byte size and SHA-256 from the build's platform JSON. Ship the updated manifest with the extension. Do not replace existing release assets; create a new runtime version. Native build tooling is mirrored under `scripts/` and `.github/workflows/runtime.yml` here.

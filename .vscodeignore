@@ -5,3 +5,7 @@ docs/**
 package-lock.json
 *.vsix
 src/**
+scripts/**
+.github/**
+dist/**
+.runtime/**
