@@ -1,4 +1,5 @@
-const {diffLines}=require('diff');
+const {diffLines,createTwoFilesPatch}=require('diff');
+exports.filePatch=(name,before,after)=>createTwoFilesPatch('a/'+name,'b/'+name,before,after,'','',{timeout:100,maxEditLength:5000})||('# Diff too large to export: '+JSON.stringify(name)+'\n');
 exports.lineStats=(before,after)=>{
  const parts=diffLines(before,after,{timeout:100,maxEditLength:5000});
  if(!parts)return {added:null,removed:null};

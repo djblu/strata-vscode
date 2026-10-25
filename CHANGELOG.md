@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 — 2026-10-25
+
+- Fix checkpoint scan ordering so large subfolders cannot prevent capturing root files.
+- Update change cards and private per-task `.diff` files on harness file-update events; flush at turn completion.
+- Keep the original before-state across repeated updates and report missing checkpoint coverage.
+
 ## 0.1.2 — 2026-10-25
 
 - Add saved per-turn file-change cards, line counts, expandable lists and VS Code diffs.

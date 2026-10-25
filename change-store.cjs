@@ -3,7 +3,7 @@ const fs=require('node:fs/promises');
 const {constants}=require('node:fs');
 const path=require('node:path');
 const {randomUUID}=require('node:crypto');
-const {lineStats}=require('./change-diff.cjs');
+const {lineStats,filePatch}=require('./change-diff.cjs');
 const SKIP=new Set(['.git','node_modules','__pycache__','target','dist','build','venv','.venv']);
 const secret=n=>/^\.env(?:\.|$)/i.test(n)||/\.(?:pem|key|p12|pfx|env)$/i.test(n)||/^id_(rsa|ed25519|ecdsa)/.test(n);
 const within=(root,p)=>{const rel=path.relative(root,p);return !path.isAbsolute(rel)&&rel!=='..'&&!rel.startsWith('..'+path.sep);};
@@ -38,18 +38,21 @@ class ChangeStore{
  async scan(root,dirty=[]){
   root=await fs.realpath(root);const files=new Map(),known=new Set(),skipped=new Set();let bytes=0,count=0,partial=false;
   const start=Date.now(),blocked=new Set(dirty.map(p=>path.resolve(p)));
+  const queue=[root];
   const walk=async dir=>{
    let entries;try{entries=await fs.readdir(dir,{withFileTypes:true});}catch{partial=true;return;}
    for(const e of entries){
     if(++count>this.maxFiles||Date.now()-start>this.maxMs){partial=true;return;}
     const full=path.join(dir,e.name),rel=path.relative(root,full);
-    if(e.isDirectory()){if(!SKIP.has(e.name)&&(!e.name.startsWith('.')||['.github','.vscode'].includes(e.name)))await walk(full);continue;}
+    if(e.isDirectory()){if(!SKIP.has(e.name)&&(!e.name.startsWith('.')||['.github','.vscode'].includes(e.name)))queue.push(full);continue;}
     known.add(rel);
     if(!e.isFile()||secret(e.name)||blocked.has(full)){skipped.add(rel);continue;}
     try{const v=await this.read(root,rel);if(!v)continue;const size=Buffer.byteLength(v.text);if(bytes+size>this.maxBytes){partial=true;skipped.add(rel);continue;}bytes+=size;files.set(rel,v);}catch{skipped.add(rel);}
    }
   };
-  await walk(root);return {root,files,known,skipped,partial};
+  while(queue.length&&count<=this.maxFiles&&Date.now()-start<=this.maxMs)await walk(queue.shift());
+  if(queue.length)partial=true;
+  return {id:randomUUID(),root,files,known,skipped,partial};
  }
  async finish(before,chatId,dirty=[]){
   const after=await this.scan(before.root,dirty),files=[];const blocked=new Set(dirty.map(p=>path.resolve(p)));
@@ -61,13 +64,18 @@ class ChangeStore{
    if(old?.text===next?.text&&old?.mode===next?.mode)continue;
    files.push({path:rel,before:old,after:next,...lineStats(old?.text||'',next?.text||'')});
   }
-  const record={id:randomUUID(),chatId,root:before.root,createdAt:Date.now(),partial:before.partial||after.partial||before.skipped.size>0||after.skipped.size>0,files};
-  if(!files.length)return null;
+  const record={id:before.id||randomUUID(),chatId,root:before.root,createdAt:Date.now(),partial:before.partial||after.partial||before.skipped.size>0||after.skipped.size>0,files};
+  if(!files.length&&!before.saved)return null;
   await fs.mkdir(this.dir,{recursive:true,mode:0o700});
   // Bound retained data without deleting older checkpoints behind the user's back.
   let size=0;for(const n of await fs.readdir(this.dir)){size+=(await fs.stat(path.join(this.dir,n))).size;}
-  const data=JSON.stringify(record);if(size+Buffer.byteLength(data)>512*1024*1024)throw Error('Change snapshot storage is full (512 MB); this turn has no undo checkpoint');
-  await fs.writeFile(path.join(this.dir,record.id+'.json'),data,{flag:'wx',mode:0o600});return this.summary(record);
+  const data=JSON.stringify(record),patch=files.map(f=>filePatch(f.path,f.before?.text||'',f.after?.text||'')).join('\n');
+  const dest=path.join(this.dir,record.id+'.json'),diffDest=path.join(this.dir,record.id+'.diff');
+  for(const p of [dest,diffDest]){try{size-=(await fs.stat(p)).size;}catch(e){if(e.code!=='ENOENT')throw e;}}
+  if(size+Buffer.byteLength(data)+Buffer.byteLength(patch)>512*1024*1024)throw Error('Change snapshot storage is full (512 MB); this turn has no undo checkpoint');
+  await fs.writeFile(dest+'.tmp',data,{mode:0o600});await fs.rename(dest+'.tmp',dest);
+  await fs.writeFile(diffDest+'.tmp',patch,{mode:0o600});await fs.rename(diffDest+'.tmp',diffDest);
+  before.saved=true;return this.summary(record);
  }
  summary(r){return {id:r.id,undone:!!r.undone,partial:r.partial,files:r.files.map(f=>({path:f.path,added:f.added,removed:f.removed,kind:!f.before?'added':!f.after?'deleted':'modified',undoable:!f.before||!!f.after&&f.before.mode===f.after.mode})),added:r.files.reduce((n,f)=>n+(f.added||0),0),removed:r.files.reduce((n,f)=>n+(f.removed||0),0)};}
  async load(id,chatId){if(!/^[a-f0-9-]{36}$/.test(id||''))throw Error('Invalid checkpoint');const r=JSON.parse(await fs.readFile(path.join(this.dir,id+'.json'),'utf8'));if(r.id!==id||r.chatId!==chatId)throw Error('Checkpoint belongs to another chat');return r;}

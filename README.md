@@ -111,7 +111,7 @@ Delete a saved chat using the × button beside it in the chat list (shown on hov
 
 ## File-change summaries and Undo
 
-New turns capture eligible saved text files in the open workspace. At the end, a card shows edited files, added/removed lines, **View changes**, and **Undo**, with **Show more files** for longer lists. Clicking a file opens a read-only before/after diff in VS Code. Cards persist with saved chats; older chats have no retroactive checkpoints.
+New turns capture eligible saved text files in the open workspace. Harness file-update events refresh a saved per-task `.diff` and change card (updates coalesce for one second); the end of the turn flushes the final state. A card shows edited files, added/removed lines, **View changes**, and **Undo**, with **Show more files** for longer lists. Clicking a file opens a read-only before/after diff in VS Code. Cards persist with saved chats; older chats have no retroactive checkpoints.
 
 Undo asks for confirmation, including any newly created files it will delete. It refuses files changed since the turn or containing unsaved editor edits. Existing user changes from before the turn are preserved. Restored text is applied as **unsaved editor edits**: review and save it. The chat itself is not rewound, and the next prompt reminds the harness that earlier changes were undone.
 
@@ -120,3 +120,5 @@ This is a workspace snapshot, not a record of which process made each edit: chan
 Snapshots cover UTF-8 text files up to 1 MiB each, within a 32 MiB/5,000-entry/four-second scan budget. Symlinks, hardlinks, binary/large files, unsaved files, common dependency/build directories, most hidden directories and common credential files are excluded. Partial scans are labelled; uncaptured files are never treated as safely deletable additions. A `?` line count means an expensive diff exceeded its calculation budget; the full captured text remains available in View changes.
 
 Snapshots stay on the extension host (the SSH host for remote workspaces), in its private global storage; their contents are not sent to the model. Retained snapshots are capped at 512 MiB; new checkpoints stop when full rather than deleting older ones automatically. Deleting a saved chat does not delete its retained snapshot files.
+
+Checkpoint scans visit root files before descending into subfolders, so large nested trees do not starve top-level files. Scan limits and reported updates without a captured diff produce a notice. For complete coverage, open the project folder rather than an entire home directory. A diff cannot reconstruct an uncaptured pre-edit version; such files are never offered for automatic Undo.

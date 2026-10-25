@@ -21,15 +21,31 @@ function activate(context) {
   let timer;
   let manualCompaction=false;
   const changeStore=new (require('./change-store.cjs').ChangeStore)(path.join(context.globalStorageUri.fsPath,'changes'));
-  let turnSnapshot,finishing;
+  let turnSnapshot,finishing,changeTimer,changeQueue=Promise.resolve();
+  let reportedChanges=new Set();
+  function publishChanges(summary){
+    if(!summary)return;
+    const entry=transcript.find(e=>e.role==='changes'&&JSON.parse(e.text).id===summary.id);
+    if(entry){entry.text=JSON.stringify(summary);post({type:'changeUpdated',summary});persist();}
+    else add('changes',JSON.stringify(summary));
+  }
+  function collectChanges(snapshot){
+    changeQueue=changeQueue.then(async()=>{publishChanges(await changeStore.finish(snapshot,chatId,dirtyPaths()));}).catch(e=>add('notice','File change summary unavailable: '+e.message));
+    return changeQueue;
+  }
   const dirtyPaths=()=>vscode.workspace.textDocuments.filter(d=>d.isDirty&&d.uri.scheme==='file').map(d=>d.uri.fsPath);
   const diffTexts=new Map();
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('strata-change',{provideTextDocumentContent:uri=>diffTexts.get(uri.toString())||''}));
   async function finishTurn(){
     if(finishing)return finishing;
+    clearTimeout(changeTimer);changeTimer=undefined;
     const snapshot=turnSnapshot;turnSnapshot=undefined;
     finishing=(async()=>{
-      try{if(snapshot){post({type:'status',text:'Collecting file changes…'});const summary=await changeStore.finish(snapshot,chatId,dirtyPaths());if(summary)add('changes',JSON.stringify(summary));}}
+      try{if(snapshot){post({type:'status',text:'Collecting file changes…'});await collectChanges(snapshot);
+        const captured=transcript.filter(e=>e.role==='changes'&&JSON.parse(e.text).id===snapshot.id).flatMap(e=>JSON.parse(e.text).files.map(f=>f.path));
+        const missing=[...reportedChanges].filter(p=>!captured.includes(p));
+        if(missing.length)add('notice','Some reported file updates have no captured diff (outside the workspace, excluded, unchanged, or scan limits): '+missing.join(', '));
+        else if(!snapshot.saved&&snapshot.partial)add('notice','No file diff captured. The workspace checkpoint reached its scan limits; open a smaller project folder for reliable change tracking.');}}
       catch(e){add('notice','File change summary unavailable: '+e.message);}
       finally{manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});persist();}
     })();
@@ -216,6 +232,10 @@ function activate(context) {
     if (m.type === 'idle'&&m.chatId===chatId) {void finishTurn();return;}
     if (m.type !== 'frame' || m.chatId !== chatId) return;
     const f = m.frame;
+    if(f.type==='deliverable'&&turnSnapshot){
+      if(typeof f.path==='string')reportedChanges.add(f.path);
+      if(!changeTimer){const snapshot=turnSnapshot;changeTimer=setTimeout(()=>{if(turnSnapshot===snapshot)void collectChanges(snapshot).finally(()=>{changeTimer=undefined;});else changeTimer=undefined;},1000);}
+    }
     if(f.type==='status'&&f.manual===true)manualCompaction=true;
     contextFrame(f);
     if(f.noteReason==='compacted'){add('compaction',manualCompaction?'Context compacted':'Context automatically compacted');return;}
@@ -367,6 +387,7 @@ function activate(context) {
         permissionMode=m.mode;
         busy = true; post({type:'busy',value:true});
         try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.');
+          reportedChanges=new Set();
           if(m.text.trim()!=='/compact'){post({type:'status',text:'Saving workspace checkpoint…'});try{turnSnapshot=await changeStore.scan(vscode.workspace.workspaceFolders[0].uri.fsPath,dirtyPaths());}catch(e){add('notice','Undo checkpoint unavailable: '+e.message);}}
           add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
         catch (e) {turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}

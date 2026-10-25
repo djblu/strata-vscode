@@ -45,3 +45,20 @@ test('change card restores safely, expands files, routes diffs and disables undo
  const undo=card.querySelector('.undo-changes');undo.click();assert.equal(sent.at(-1).type,'undoChanges');emit({type:'busy',value:true});assert.equal(undo.disabled,true);
  emit({type:'changeUpdated',summary:{...summary,undone:true}});emit({type:'busy',value:false});assert.equal(card.querySelector('.undo-changes').disabled,true);dom.window.close();
 });
+
+test('large nested trees cannot starve root files of checkpoints',async()=>{
+ const {root,store}=await fixture({maxFiles:12});await mkdir(path.join(root,'aaa-large'));
+ for(let i=0;i<30;i++)await writeFile(path.join(root,'aaa-large',String(i)),'noise');
+ await writeFile(path.join(root,'tetris.html'),'old clock\n');
+ const before=await store.scan(root);assert.equal(before.partial,true);assert.ok(before.files.has('tetris.html'));
+ await writeFile(path.join(root,'tetris.html'),'new clock\n');
+ const summary=await store.finish(before,'chat');assert.deepEqual(summary.files.map(f=>f.path),['tetris.html']);
+});
+test('live checkpoints update one task diff without losing the original baseline',async()=>{
+ const {root,store}=await fixture();await writeFile(path.join(root,'clock.html'),'original\n');const before=await store.scan(root);
+ await writeFile(path.join(root,'clock.html'),'intermediate\n');const first=await store.finish(before,'chat');
+ await writeFile(path.join(root,'clock.html'),'finished\n');const second=await store.finish(before,'chat');assert.equal(first.id,second.id);
+ const record=await store.load(second.id,'chat');assert.equal(record.files[0].before.text,'original\n');assert.equal(record.files[0].after.text,'finished\n');
+ const diff=await readFile(path.join(store.dir,second.id+'.diff'),'utf8');assert.match(diff,/-original/);assert.match(diff,/\+finished/);assert.doesNotMatch(diff,/intermediate/);
+ await writeFile(path.join(root,'clock.html'),'original\n');const reverted=await store.finish(before,'chat');assert.equal(reverted.id,first.id);assert.equal(reverted.files.length,0);assert.equal(await readFile(path.join(store.dir,first.id+'.diff'),'utf8'),'');
+});
