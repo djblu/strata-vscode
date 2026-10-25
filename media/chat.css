@@ -40,3 +40,13 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 #attachments{display:flex;gap:8px;overflow-x:auto;padding:12px 12px 0}.attachment-card{position:relative;flex:0 0 160px;height:130px;border:1px solid var(--vscode-panel-border);border-radius:12px;overflow:hidden;background:var(--vscode-editor-background)}.attachment-card img,.attachment-file{width:100%;height:98px;object-fit:contain}.attachment-file{display:flex;align-items:center;justify-content:center;font-size:36px;color:var(--vscode-descriptionForeground)}.attachment-name{padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}.attachment-remove{position:absolute;right:3px;top:3px;background:var(--vscode-editor-background);padding:2px 7px}
 
 .chat-list-item{display:flex;align-items:center;gap:4px}.chat-list-item .chat-row{flex:1;min-width:0}.delete-chat{flex:none;opacity:0;color:var(--vscode-descriptionForeground);font-size:18px}.chat-list-item:hover .delete-chat,.chat-list-item:focus-within .delete-chat{opacity:1}@media(hover:none){.delete-chat{opacity:1}}
+
+.change-summary{margin:16px 0;border:1px solid var(--vscode-panel-border,#333);border-radius:12px;overflow:hidden;color:var(--vscode-descriptionForeground,#aaa);flex-shrink:0}
+.change-header{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--vscode-panel-border,#333)}
+.change-header>div{flex:1;min-width:0}.change-header strong{display:block;color:var(--vscode-foreground,#ccc);font-weight:600;margin-bottom:5px}
+.change-summary button{font:inherit;color:inherit;background:transparent;cursor:pointer}.change-header button{border:1px solid var(--vscode-panel-border,#333);border-radius:16px;padding:6px 10px;white-space:nowrap}.change-header .undo-changes{border-color:transparent}
+.change-summary button:disabled{opacity:.45;cursor:default}.change-summary button:focus-visible{outline:1px solid var(--vscode-focusBorder,#007acc);outline-offset:-2px}
+.change-file{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px}.change-file[hidden]{display:none}.change-file button{border:0;text-align:left;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0}.change-file button:hover{text-decoration:underline}
+.change-stats{white-space:nowrap;font-size:12px}.change-stats span+span{margin-left:6px}.lines-added{color:var(--vscode-gitDecoration-addedResourceForeground,#69c98c)}.lines-removed{color:var(--vscode-gitDecoration-deletedResourceForeground,#ee8466)}
+.change-summary .show-changes{display:block;border:0;padding:12px 16px}.change-note{font-size:11px;margin:6px 16px 12px;opacity:.8}
+@media(max-width:360px){.change-header{flex-wrap:wrap}.change-header>div{flex-basis:100%}}

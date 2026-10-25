@@ -20,6 +20,62 @@ function activate(context) {
   let transcript = saved?.transcript || context.workspaceState.get('transcript') || [];
   let timer;
   let manualCompaction=false;
+  const changeStore=new (require('./change-store.cjs').ChangeStore)(path.join(context.globalStorageUri.fsPath,'changes'));
+  let turnSnapshot,finishing;
+  const dirtyPaths=()=>vscode.workspace.textDocuments.filter(d=>d.isDirty&&d.uri.scheme==='file').map(d=>d.uri.fsPath);
+  const diffTexts=new Map();
+  context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('strata-change',{provideTextDocumentContent:uri=>diffTexts.get(uri.toString())||''}));
+  async function finishTurn(){
+    if(finishing)return finishing;
+    const snapshot=turnSnapshot;turnSnapshot=undefined;
+    finishing=(async()=>{
+      try{if(snapshot){post({type:'status',text:'Collecting file changes…'});const summary=await changeStore.finish(snapshot,chatId,dirtyPaths());if(summary)add('changes',JSON.stringify(summary));}}
+      catch(e){add('notice','File change summary unavailable: '+e.message);}
+      finally{manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});persist();}
+    })();
+    try{await finishing;}finally{finishing=undefined;}
+  }
+  async function changeAction(m){
+    if(!vscode.workspace.isTrusted)throw Error('Trust the workspace first');
+    if(!transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).id===m.id))throw Error('Change summary not in this chat');
+    const record=await changeStore.load(m.id,chatId);
+    const root=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if(!root||await fs.realpath(root)!==record.root)throw Error('Open the original workspace to review these changes');
+    if(m.type==='viewChanges'){
+      const file=typeof m.path==='string'?record.files.find(f=>f.path===m.path):await vscode.window.showQuickPick(record.files.map(f=>({label:f.path,file:f})),{title:'Changes during this turn'}).then(x=>x?.file);
+      if(!file)return;
+      const before=vscode.Uri.from({scheme:'strata-change',path:`/${record.id}/before/${file.path.replaceAll('\\','/')}`});
+      const after=vscode.Uri.from({scheme:'strata-change',path:`/${record.id}/after/${file.path.replaceAll('\\','/')}`});
+      diffTexts.set(before.toString(),file.before?.text||'');diffTexts.set(after.toString(),file.after?.text||'');
+      await vscode.commands.executeCommand('vscode.diff',before,after,file.path+' · Turn changes');return;
+    }
+    if(busy||connecting)throw Error('Wait for the current operation before undoing changes');
+    busy=true;post({type:'busy',value:true});
+    try{
+      await changeStore.validateUndo(record);
+      const created=record.files.filter(f=>!f.before).length;
+      const answer=await vscode.window.showWarningMessage(`Undo changes to ${record.files.length} files?`,{modal:true,detail:`Restore the saved contents from before this turn.${created?` This will delete ${created} files created during the turn.`:''} Changes made by other programs during the turn may also be included. Review the diffs first. Installs, services and Git history are not reverted.`},'Undo changes');
+      if(answer!=='Undo changes')return;
+      await changeStore.validateUndo(record);
+      const edits=new vscode.WorkspaceEdit();
+      for(const f of record.files){
+        const uri=vscode.Uri.file(await changeStore.safePath(record.root,f.path));
+        if(vscode.workspace.textDocuments.some(d=>d.uri.toString()===uri.toString()&&d.isDirty))throw Error(f.path+' has unsaved edits; save or discard them first');
+        if(!f.before){edits.deleteFile(uri,{ignoreIfNotExists:false});continue;}
+        const doc=await vscode.workspace.openTextDocument(uri);
+        const stripBOM=t=>t.startsWith('\uFEFF')?t.slice(1):t;
+        if(doc.getText()!==stripBOM(f.after.text))throw Error(f.path+' changed in the editor; review the diff instead');
+        if(f.before.text.startsWith('\uFEFF')!==f.after.text.startsWith('\uFEFF'))throw Error('Encoding changes require manual restoration');
+        edits.replace(uri,new vscode.Range(doc.positionAt(0),doc.positionAt(doc.getText().length)),stripBOM(f.before.text));
+      }
+      await changeStore.validateUndo(record);
+      if(!await vscode.workspace.applyEdit(edits))throw Error('VS Code could not apply every undo edit. Review the workspace before retrying.');
+      const summary=await changeStore.markUndone(record);
+      const item=transcript.find(e=>e.role==='changes'&&JSON.parse(e.text).id===record.id);if(item)item.text=JSON.stringify(summary);
+      post({type:'changeUpdated',summary});await saveChat();
+      vscode.window.showInformationMessage('Changes undone. Restored text is open as unsaved editor edits; review and save it.');
+    }finally{busy=false;post({type:'busy',value:false});}
+  }
   const pending = new Map();
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
@@ -122,7 +178,7 @@ function activate(context) {
   async function deleteChat(id){
     if(busy)throw Error('Stop the current turn before deleting chats');
     const item=store.list().find(c=>c.id===id);if(!item)throw Error('Chat not found');
-    const answer=await vscode.window.showWarningMessage(`Delete “${item.title}” from saved chats?`,{modal:true,detail:'This removes the saved chat and transcript from this workspace. Project files are not deleted. Harness session logs may remain on the host.'},'Delete');
+    const answer=await vscode.window.showWarningMessage(`Delete “${item.title}” from saved chats?`,{modal:true,detail:'This removes the saved chat and transcript from this workspace. Project files are not deleted. Local change snapshots and harness session logs may remain on the host.'},'Delete');
     if(answer!=='Delete')return;
     if(busy)throw Error('Stop the current turn before deleting chats');
     busy=true;post({type:'busy',value:true});
@@ -157,7 +213,7 @@ function activate(context) {
     if (m.type === 'ready') return;
     if(m.type==='permissionMode'&&m.chatId===chatId&&validMode(m.mode)){permissionMode=m.mode;post({type:'permissionMode',mode:permissionMode});persist();return;}
     if (m.type === 'error') { contextFrame(m); add('error', m.text); return; }
-    if (m.type === 'idle') { manualCompaction=false;contextFrame(m); busy = false; post({type: 'busy', value: false}); persist(); return; }
+    if (m.type === 'idle'&&m.chatId===chatId) {void finishTurn();return;}
     if (m.type !== 'frame' || m.chatId !== chatId) return;
     const f = m.frame;
     if(f.type==='status'&&f.manual===true)manualCompaction=true;
@@ -220,7 +276,7 @@ function activate(context) {
       p.on('error', e => {clearTimeout(timeout); reject(e);});
       p.on('exit', () => {
         clearTimeout(timeout); reject(Error('Adapter exited'));
-        if (child === p) {child = undefined; ready = undefined; busy = false; pending.clear(); post({type:'busy',value:false}); if (!closing) add('error', 'Harness stopped. Send a message to reconnect.');}
+        if (child === p) {child = undefined; ready = undefined; pending.clear(); if (!closing) add('error', 'Harness stopped. Send a message to reconnect.');void finishTurn();}
       });
       p.stdin.on('error', () => {});
       p.stdin.write(JSON.stringify({type: 'init', config}) + '\n');
@@ -257,6 +313,7 @@ function activate(context) {
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
       else if (m.type === 'profiles') await chooseProfile();
+      else if(m.type==='viewChanges'||m.type==='undoChanges')await changeAction(m);
       else if (m.type === 'connect') await connect();
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
@@ -309,8 +366,10 @@ function activate(context) {
         if(images.length&&/^\/compact(?:\s|$)/.test(m.text.trim()))throw Error('Remove images before compacting context.');
         permissionMode=m.mode;
         busy = true; post({type:'busy',value:true});
-        try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.'); add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); write({type:'send',chatId,text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
-        catch (e) {busy=false;post({type:'busy',value:false});throw e;}
+        try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.');
+          if(m.text.trim()!=='/compact'){post({type:'status',text:'Saving workspace checkpoint…'});try{turnSnapshot=await changeStore.scan(vscode.workspace.workspaceFolders[0].uri.fsPath,dirtyPaths());}catch(e){add('notice','Undo checkpoint unavailable: '+e.message);}}
+          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
+        catch (e) {turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}
       } else if (m.type === 'stop') {write({type:'stop',chatId}); post({type:'status',text:'Stopping…'});}
       else if (m.type === 'approve') {
         if (!pending.has(m.callId) || !['approve','deny'].includes(m.decision)) throw Error('Approval is no longer pending');

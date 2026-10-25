@@ -108,3 +108,15 @@ Image input requires a vision-capable model served through the supported OpenAI 
 v0.1.0 contains the features developed and tested through the private v0.1.28 preview. Development history is retained. Existing preview users must manually install the v0.1.0 VSIX because VS Code does not automatically downgrade extensions. Publisher and extension IDs are unchanged, so saved connections and chat storage remain associated with the same extension.
 
 Delete a saved chat using the × button beside it in the chat list (shown on hover or keyboard focus), then confirm Delete. Stop a running turn first. This removes the extension’s saved transcript for that workspace; project files and underlying harness session logs are not deleted.
+
+## File-change summaries and Undo
+
+New turns capture eligible saved text files in the open workspace. At the end, a card shows edited files, added/removed lines, **View changes**, and **Undo**, with **Show more files** for longer lists. Clicking a file opens a read-only before/after diff in VS Code. Cards persist with saved chats; older chats have no retroactive checkpoints.
+
+Undo asks for confirmation, including any newly created files it will delete. It refuses files changed since the turn or containing unsaved editor edits. Existing user changes from before the turn are preserved. Restored text is applied as **unsaved editor edits**: review and save it. The chat itself is not rewound, and the next prompt reminds the harness that earlier changes were undone.
+
+This is a workspace snapshot, not a record of which process made each edit: changes made by other programs during a turn may also be included. Review the diffs before Undo. Deleted files and permission changes are viewable but require manual restoration. Installations, service changes, Git operations, external files and other command side effects are not undone.
+
+Snapshots cover UTF-8 text files up to 1 MiB each, within a 32 MiB/5,000-entry/four-second scan budget. Symlinks, hardlinks, binary/large files, unsaved files, common dependency/build directories, most hidden directories and common credential files are excluded. Partial scans are labelled; uncaptured files are never treated as safely deletable additions. A `?` line count means an expensive diff exceeded its calculation budget; the full captured text remains available in View changes.
+
+Snapshots stay on the extension host (the SSH host for remote workspaces), in its private global storage; their contents are not sent to the model. Retained snapshots are capped at 512 MiB; new checkpoints stop when full rather than deleting older ones automatically. Deleting a saved chat does not delete its retained snapshot files.

@@ -99,7 +99,26 @@ function toolSummary(t) {
   if(t.state==='error')label+=' · Failed';
   return activitySummary(label,kind);
 }
+function changeCard(summary,existing){
+  formatted(last);last=undefined;
+  const box=existing||document.createElement('section');box.className='change-summary';box.dataset.changeId=summary.id;box.replaceChildren();
+  const header=document.createElement('div');header.className='change-header';
+  const heading=document.createElement('strong');heading.textContent=`${summary.undone?'Undid changes to':'Edited'} ${summary.files.length} file${summary.files.length===1?'':'s'}`;
+  const stats=(added,removed)=>{const el=document.createElement('span');el.className='change-stats';const a=document.createElement('span'),r=document.createElement('span');a.className='lines-added';r.className='lines-removed';a.textContent=added===null?'+?':`+${added}`;r.textContent=removed===null?'−?':`−${removed}`;el.append(a,r);return el;};
+  const label=document.createElement('div');label.append(heading,stats(summary.files.some(f=>f.added===null)?null:summary.added,summary.files.some(f=>f.removed===null)?null:summary.removed));
+  const undo=document.createElement('button');undo.className='undo-changes';undo.textContent=summary.undone?'Undone':'Undo ↶';
+  undo.dataset.unavailable=String(!!summary.undone||summary.files.some(f=>!f.undoable));undo.disabled=working||undo.dataset.unavailable==='true';
+  undo.title='Restore the pre-turn text after confirmation. Refuses later edits. Deleted files and permission changes need manual restoration.';
+  undo.onclick=()=>vscode.postMessage({type:'undoChanges',id:summary.id});
+  const view=document.createElement('button');view.textContent='View changes';view.onclick=()=>vscode.postMessage({type:'viewChanges',id:summary.id});header.append(label,undo,view);box.append(header);
+  const rows=[];
+  for(const f of summary.files){const row=document.createElement('div');row.className='change-file';const name=document.createElement('button');name.textContent=f.path;name.title=f.path+' · '+f.kind;name.onclick=()=>vscode.postMessage({type:'viewChanges',id:summary.id,path:f.path});row.append(name,stats(f.added,f.removed));row.hidden=rows.length>=3;rows.push(row);box.append(row);}
+  if(rows.length>3){const more=document.createElement('button');more.className='show-changes';let expanded=false;more.textContent=`Show ${rows.length-3} more files ⌄`;more.onclick=()=>{expanded=!expanded;rows.forEach((row,i)=>row.hidden=!expanded&&i>=3);more.textContent=expanded?'Show fewer files ⌃':`Show ${rows.length-3} more files ⌄`;scroll();};box.append(more);}
+  const note=document.createElement('p');note.className='change-note';note.textContent='Workspace changes during this turn'+(summary.partial?' · Limited to captured text files':'');note.title='Includes eligible saved workspace files, including changes by other programs during the turn. Does not undo installs, commands or service changes.';box.append(note);
+  if(!existing)history.append(box);scroll();return box;
+}
 function entry(role,text,timestamp) {
+  if(role==='changes'){try{changeCard(JSON.parse(text));}catch{}return;}
   formatted(last);
   const reasoning=role==='reasoning';
   const box=document.createElement(reasoning?'details':'div');box.className=`entry ${role}`;
@@ -128,6 +147,7 @@ function busy(value) {
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
+  for(const undo of history.querySelectorAll('.undo-changes'))undo.disabled=value||undo.dataset.unavailable==='true';
   if(!value)formatted(last);
   if(!value)for(const title of history.querySelectorAll('.reasoning .activity-label'))title.textContent='Reasoning';
 }
@@ -141,6 +161,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='permissionMode')showPermission(m.mode);
   else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
+  else if(m.type==='changeUpdated'){const card=Array.from(history.children).find(e=>e.dataset?.changeId===m.summary.id);if(card)changeCard(m.summary,card);}
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
   else if(m.type==='contextInfo'){

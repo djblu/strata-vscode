@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — 2026-10-25
+
+- Add saved per-turn file-change cards, line counts, expandable lists and VS Code diffs.
+- Confirm Undo for modified/new workspace text files and reject later or unsaved edits.
+- Preserve pre-existing edits; restored text remains unsaved for review. New files are deleted only after confirmation.
+- Deleted files, permission changes, shell side effects and files outside the workspace require manual restoration.
+
 ## 0.1.1 — 2026-10-25
 
 - Delete saved chats from the chat list with confirmation.
