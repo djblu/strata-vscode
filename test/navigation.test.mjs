@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {JSDOM} from 'jsdom';
+import html from '../ui.cjs';
+test('header shows active title and embedded list opens a selected session',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});
+ const sent=[];dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});
+ dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const $=id=>dom.window.document.getElementById(id);const event=m=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data:m}));
+ event({type:'chatMetadata',activeId:'a',chats:[{id:'a',title:'Set Up Qwen on llama.cpp',updatedAt:1000},{id:'b',title:'Build app',updatedAt:2000}]});
+ assert.equal($('chat-title').textContent,'Set Up Qwen on llama.cpp');
+ $('chats').click();assert.equal(sent.at(-1).type,'chats');event({type:'page',page:'chats'});
+ assert.equal($('chat-page').hidden,false);assert.equal($('history').hidden,true);assert.equal($('composer-footer').hidden,true);assert.equal($('chat-title').textContent,'Chats');
+ $('chat-search').value='build';$('chat-search').dispatchEvent(new dom.window.Event('input'));
+ assert.equal($('chat-list').children.length,1);$('chat-list').children[0].click();assert.equal(sent.at(-1).id,'b');
+ event({type:'chatMetadata',activeId:'b',chats:[{id:'b',title:'Build app',updatedAt:2000}]});event({type:'page',page:'chat'});
+ assert.equal($('chat-title').textContent,'Build app');assert.equal($('composer-footer').hidden,false);assert.equal($('chats').hidden,false);
+ $('new').click();assert.equal(sent.at(-1).type,'new');dom.window.close();
+});

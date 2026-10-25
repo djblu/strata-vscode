@@ -20,7 +20,8 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
   const post = m => view?.webview.postMessage(m);
-  function saveChat() {return store.save({id:chatId,transcript,contextInfo});}
+  function chatMetadata() {post({type:'chatMetadata',activeId:chatId,chats:store.list()});}
+  async function saveChat() {await store.save({id:chatId,transcript,contextInfo});chatMetadata();}
   function persist() {
     if(timer)return;
     timer=setTimeout(()=>{timer=undefined;saveChat().catch(e=>vscode.window.showErrorMessage(`Strata could not save chat: ${e.message}`));},1000);
@@ -32,20 +33,18 @@ function activate(context) {
       clearTimeout(timer);timer=undefined;await saveChat();
       const target=id?store.load(id):null;if(id&&!target)throw Error('Chat not found');
       chatId=target?.id||randomUUID();transcript=target?.transcript||[];contextInfo={...target?.contextInfo,compacting:false};pending.clear();
-      await saveChat();post({type:'restore',transcript,busy:false});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});
+      await saveChat();post({type:'restore',transcript,busy:false});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});post({type:'page',page:'chat'});
     } finally {busy=false;post({type:'busy',value:false});}
   }
   async function chooseChat() {
     if(busy)throw Error('Stop the current turn before switching chats');
-    await saveChat();
-    const chosen=await vscode.window.showQuickPick(store.list().map(item=>({label:item.title,description:item.id===chatId?'Current chat':'',detail:new Date(item.updatedAt).toLocaleString(),id:item.id})),{title:'Strata — Saved chats in this workspace',placeHolder:'Search conversations to resume'});
-    if(chosen&&chosen.id!==chatId)await switchChat(chosen.id);
+    await saveChat();post({type:'page',page:'chats'});
   }
   async function renameChat() {
     if(busy)throw Error('Wait for the current turn to finish before renaming');
     await saveChat();const id=chatId;
     const name=await vscode.window.showInputBox({title:'Rename chat',value:store.list().find(item=>item.id===id)?.title,validateInput:value=>!value.trim()?'Enter a title':value.length>120?'Use 120 characters or fewer':undefined});
-    if(name?.trim())await store.rename(id,name.trim());
+    if(name?.trim()){await store.rename(id,name.trim());chatMetadata();}
   }
   function add(role, text) {
     transcript.push({role, text});
@@ -147,7 +146,7 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {persist();post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
         await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -161,6 +160,7 @@ function activate(context) {
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
       else if (m.type === 'new') await switchChat();
       else if (m.type === 'chats') await chooseChat();
+      else if (m.type === 'openChat') {if(typeof m.id!=='string'||!store.list().some(c=>c.id===m.id))throw Error('Chat not found');await switchChat(m.id);}
       else if (m.type === 'rename') await renameChat();
       else if (m.type === 'send') {
         if (busy) return;

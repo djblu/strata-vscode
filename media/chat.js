@@ -3,6 +3,26 @@ const vscode = acquireVsCodeApi();
 const $ = id => document.getElementById(id);
 const history = $('history'), cards = new Map();
 let last, buffer = '', bufferRole, scheduled, working = false, follow = true;
+let page='chat',chatItems=[],activeChat;
+function showPage(next) {
+  page=next;const listing=page==='chats';
+  $('chat-page').hidden=!listing;history.hidden=listing;$('composer-footer').hidden=listing;
+  $('chats').hidden=listing;$('rename').hidden=listing;
+  const title=chatItems.find(c=>c.id===activeChat)?.title||'New chat';
+  $('chat-title').textContent=listing?'Chats':title;$('chat-title').title=listing?'Saved chats':title;
+}
+function renderChats() {
+  const query=$('chat-search').value.trim().toLowerCase();$('chat-list').replaceChildren();
+  const items=chatItems.filter(c=>c.title.toLowerCase().includes(query));
+  for(const chat of items){
+    const row=document.createElement('button');row.className='chat-row';row.disabled=working;
+    const name=document.createElement('span');name.className='chat-row-title';name.textContent=chat.title;
+    const date=document.createElement('span');date.className='chat-row-date';date.textContent=new Date(chat.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})+(chat.id===activeChat?' · Current':'');
+    row.append(name,date);row.onclick=()=>vscode.postMessage({type:'openChat',id:chat.id});$('chat-list').append(row);
+  }
+  if(!items.length){const empty=document.createElement('p');empty.className='empty-chats';empty.textContent=query?'No matching chats.':'Start a new chat using ＋ above.';$('chat-list').append(empty);}
+}
+$('chat-search').addEventListener('input',renderChats);
 function scroll() {if(follow)history.scrollTop=history.scrollHeight;}
 history.addEventListener('scroll',()=>{follow=history.scrollHeight-history.scrollTop-history.clientHeight<80;});
 const copies=new Map();let copyId=0;
@@ -24,13 +44,15 @@ function entry(role,text) {
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
 function busy(value) {
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
-  document.body.classList.toggle('working',value);
+  document.body.classList.toggle('working',value);renderChats();
   if(!value)formatted(last);
   if(!value)for(const title of history.querySelectorAll('.reasoning summary'))title.textContent='Reasoning';
 }
 window.addEventListener('message',({data:m})=>{
   if(m.type!=='chunk')flush();
   if(m.type==='copied'){const button=copies.get(m.id);if(button){button.disabled=false;button.textContent=m.error?'Try again':'Copied!';copies.delete(m.id);setTimeout(()=>{button.textContent='Copy';},1800);}}
+  else if(m.type==='page')showPage(m.page);
+  else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='restore'){history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text);scroll();}
   else if(m.type==='entry')entry(m.role,m.text);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
