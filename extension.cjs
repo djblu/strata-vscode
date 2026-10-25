@@ -23,19 +23,24 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
   const post = m => view?.webview.postMessage(m);
-  const savedConnection=()=>context.workspaceState.get('profileConnection')||context.globalState.get('connection');
+  const connections=new (require('./saved-connections.cjs').SavedConnections)(context.secrets);
+  let connectionCache;
+  const savedConnection=()=>connectionCache;
   function modelInfo(){const cfg=vscode.workspace.getConfiguration('strata');post({type:'modelInfo',model:savedConnection()?.model||cfg.get('model')||'Connect to Strata',thinking:cfg.get('thinking')});}
   let connecting=false,offeredSetup=false;
   function connectionInfo(){const c=savedConnection();post({type:'connectionInfo',text:c?`${c.name||c.model} · ${c.baseURL}`:'Not connected',connected:!!c});}
   async function getConnection(){
-    let c=savedConnection();if(c)return c;
-    const cfg=vscode.workspace.getConfiguration('strata');
-    const {usable,legacy}=require('./runtime-setup.cjs');
-    if(await context.secrets.get('strata.apiKey')&&await usable(legacy)){
-      c={baseURL:cfg.get('baseURL')||'http://10.70.70.24:8081/v1',model:cfg.get('model')||'swift-1.5-q4_k_m',contextWindow:cfg.get('contextWindow')||262144};
-      await context.globalState.update('connection',c);
+    const selected=context.workspaceState.get('connectionId');
+    let p=await connections.get(selected);
+    if(selected&&!p)throw Error('Saved connection no longer exists. Use Switch saved connection.');
+    if(!p){
+      // Migrate the earlier per-host configuration into client-side SecretStorage.
+      let old=context.globalState.get('connection');const key=await context.secrets.get('strata.apiKey');
+      if(!old&&key){const {usable,legacy}=require('./runtime-setup.cjs');if(await usable(legacy)){const cfg=vscode.workspace.getConfiguration('strata');old={baseURL:cfg.get('baseURL')||'http://10.70.70.24:8081/v1',model:cfg.get('model')||'swift-1.5-q4_k_m',contextWindow:cfg.get('contextWindow')||262144};}}
+      if(old&&key!==undefined)p=await connections.save({...old,name:'Strata — '+old.model,apiKey:key});
     }
-    return c;
+    connectionCache=p?require('./profile-connection.cjs').validateProfile(p).connection:undefined;
+    return connectionCache;
   }
   async function runtime(){
     const cfg=vscode.workspace.getConfiguration('strata');
@@ -48,31 +53,34 @@ function activate(context) {
     if(!child)return;const p=child;await shutdown();
     await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Previous harness is still stopping. Try connecting again.')),30000);p.once('exit',()=>{clearTimeout(t);resolve();});if(p.exitCode!==null){clearTimeout(t);resolve();}});
   }
-  async function companionAvailable(){return (await vscode.commands.getCommands?.(false)||[]).includes('strataProfiles.pick');}
   async function resolveProfile(id){
-    if(!await companionAvailable())throw Error('Install Strata Connection Profiles on your local PC and reload this window. Your selected profile is kept.');
-    const profile=await vscode.commands.executeCommand('strataProfiles.resolve',id);
-    return require('./profile-connection.cjs').validateProfile(profile);
+    const p=await connections.get(id);if(!p)throw Error('Saved connection no longer exists. Use Switch saved connection.');
+    return require('./profile-connection.cjs').validateProfile(p);
   }
   async function chooseProfile(){
-    const selected=await vscode.commands.executeCommand('strataProfiles.pick');if(!selected)return;
-    const {connection,apiKey}=require('./profile-connection.cjs').validateProfile(selected);
-    const models=await vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Testing profile from this host'},()=>require('./connection.cjs').listModels(connection.baseURL,apiKey));
-    if(!models.some(m=>m.id===connection.model))throw Error('The server does not list model '+connection.model+'. Edit the local profile model ID.');
-    await runtime();await stopForConnection();
-    await context.workspaceState.update('profileConnection',connection);
-    connectionInfo();modelInfo();vscode.window.showInformationMessage('Using '+connection.name+' in this workspace.');
+    if(busy||connecting)throw Error('Finish the current operation before switching connections');
+    const data=await connections.read();
+    const item=await vscode.window.showQuickPick([...data.profiles.map(p=>({label:p.name,description:p.model,detail:p.baseURL,id:p.id})),{label:'$(add) Add another connection…',add:true}],{title:'Switch saved Strata connection'});
+    if(!item)return;if(item.add){await connect(true);return;}
+    connecting=true;
+    try{
+      const {connection,apiKey}=await resolveProfile(item.id);
+      const models=await require('./connection.cjs').listModels(connection.baseURL,apiKey);
+      if(!models.some(m=>m.id===connection.model))throw Error('The server does not list model '+connection.model);
+      await runtime();await stopForConnection();await connections.select(item.id);
+      await context.workspaceState.update('connectionId',item.id);connectionCache=connection;
+      connectionInfo();modelInfo();
+    }finally{connecting=false;}
   }
-  async function connect(){
+  async function connect(addNew=false){
     if(connecting)return;if(busy)throw Error('Finish or stop the current turn before changing connection');
     if(!vscode.workspace.isTrusted)throw Error('Trust the workspace before setting up Strata');
     connecting=true;
     try{
-      if(await companionAvailable()){const mode=await vscode.window.showQuickPick(['Choose a saved profile on this PC','Configure only this remote host'],{title:'Connect to Strata'});if(!mode)return;if(mode==='Choose a saved profile on this PC'){await chooseProfile();return;}}
-      const {normalizeAddress,listModels}=require('./connection.cjs');const old=await getConnection();
+      const {normalizeAddress,listModels}=require('./connection.cjs');const old=addNew?undefined:await getConnection();
       const address=await vscode.window.showInputBox({title:'Connect to Strata · 1 of 4',prompt:'Model API address, reached from this extension host (include the port)',placeHolder:'http://10.70.70.24:8081',value:old?.baseURL||'',ignoreFocusOut:true,validateInput:value=>{try{normalizeAddress(value);}catch(e){return e.message;}}});if(address===undefined)return;
       const baseURL=normalizeAddress(address);
-      const existing=!old?.profileId&&old?.baseURL===baseURL?await context.secrets.get('strata.apiKey'):undefined;
+      const existing=old?.baseURL===baseURL?(await resolveProfile(old.profileId)).apiKey:undefined;
       const entered=await vscode.window.showInputBox({title:'Connect to Strata · 2 of 4',prompt:existing?'API key (leave blank to keep the saved key)':'API key (leave blank only for a server without authentication)',password:true,ignoreFocusOut:true});if(entered===undefined)return;
       const key=entered.trim()||existing||'';
       const models=await vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Testing Strata connection'},()=>listModels(baseURL,key));
@@ -81,11 +89,9 @@ function activate(context) {
       await runtime();
       // Finish the previous idle process before committing a new route.
       await stopForConnection();
-      const connection={baseURL,model:chosen.label,contextWindow:Number(limit)};
-      const previousKey=await context.secrets.get('strata.apiKey');
-      await context.secrets.store('strata.apiKey',key);
-      try{await context.globalState.update('connection',connection);}catch(e){if(previousKey===undefined)await context.secrets.delete('strata.apiKey');else await context.secrets.store('strata.apiKey',previousKey);throw e;}
-      await context.workspaceState.update('profileConnection',undefined);
+      const saved=await connections.save({id:old?.profileId,name:'Strata — '+chosen.label,baseURL,model:chosen.label,contextWindow:Number(limit),apiKey:key});
+      await context.workspaceState.update('connectionId',saved.id);
+      connectionCache=require('./profile-connection.cjs').validateProfile(saved).connection;
       connectionInfo();modelInfo();vscode.window.showInformationMessage('Connected to Strata. Your next message will use '+chosen.label+'.');
     }finally{connecting=false;}
   }
@@ -167,7 +173,7 @@ function activate(context) {
     const config = Object.fromEntries(['sourcePath','nodePath','harnessPath','baseURL','model','contextWindow','thinking'].map(k => [k, cfg.get(k)]));
     const connection=await getConnection();if(!connection)throw Error('Use Connect to Strata in the settings menu first');
     const localProfile=connection.profileId?await resolveProfile(connection.profileId):undefined;
-    if(localProfile){await context.workspaceState.update('profileConnection',localProfile.connection);connectionInfo();modelInfo();}
+    if(localProfile){connectionCache=localProfile.connection;connectionInfo();modelInfo();}
     Object.assign(config,localProfile?.connection||connection,await runtime());
     config.workspace = folders[0].uri.fsPath;
     config.apiKey = localProfile?localProfile.apiKey:await context.secrets.get('strata.apiKey')||'';
@@ -204,12 +210,9 @@ function activate(context) {
     timer=undefined;await saveChat();
   };
   const safe = fn => async (...args) => {try {await fn(...args);} catch(e) {vscode.window.showErrorMessage(`Strata: ${e.message}`);}};
-  context.subscriptions.push(vscode.commands.registerCommand('strata.connect',safe(connect)));
-  context.subscriptions.push(vscode.commands.registerCommand('strata.setApiKey', safe(async () => {
-    if(savedConnection()?.profileId){if(!await companionAvailable())throw Error('Install Strata Connection Profiles locally on your PC');await vscode.commands.executeCommand('strataProfiles.manage');return;}
-    const key = await vscode.window.showInputBox({title: 'Strata API key', password: true, ignoreFocusOut: true, prompt: 'Stored in VS Code SecretStorage. Restart the harness after changing this.'});
-    if (key !== undefined) await context.secrets.store('strata.apiKey', key.trim());
-  })));
+  context.subscriptions.push(vscode.commands.registerCommand('strata.connect',safe(()=>connect())));
+  context.subscriptions.push(vscode.commands.registerCommand('strata.setApiKey',safe(()=>connect())));
+  context.subscriptions.push(vscode.commands.registerCommand('strata.switchConnection',safe(chooseProfile)));
   context.subscriptions.push(vscode.commands.registerCommand('strata.restart', safe(async () => {await shutdown(); vscode.window.showInformationMessage('Harness is stopping. Your next message will reconnect once it exits.');})));
   context.subscriptions.push(vscode.commands.registerCommand('strata.addSelection', safe(async () => {
     const editor = vscode.window.activeTextEditor;
@@ -229,7 +232,7 @@ function activate(context) {
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
-      else if (m.type === 'profiles') {if(!await companionAvailable())throw Error('Install Strata Connection Profiles locally on your PC, then reload this window');await vscode.commands.executeCommand('strataProfiles.manage');}
+      else if (m.type === 'profiles') await chooseProfile();
       else if (m.type === 'connect') await connect();
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');

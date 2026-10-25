@@ -5,8 +5,8 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.20.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
-3. Open Strata Harness. On a new host, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
+2. Install `strata-harness-0.1.21.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
 Use **gear → Change connection**, or **Strata: Connect to Server**, to repeat setup. Keys are stored in SecretStorage and never shown in chat. Cancelling or failing setup preserves the previous saved connection. Existing sessions and this server's existing connection migrate without re-entering the key. Model discovery verifies access to the models endpoint; inference errors are still reported when a turn runs.
@@ -15,19 +15,17 @@ The model API can be on another machine. Files and commands belong to the machin
 
 Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
 
-## Reuse local profiles across SSH hosts
+## One extension across SSH hosts
 
-Install **Strata Connection Profiles** (`strata-profiles-0.1.0.vsix`) once in a **local VS Code window on your PC**. Install **Strata Harness** (`strata-harness-0.1.20.vsix`) in each SSH environment. The companion declares `extensionKind: ui` and `api: none`; the harness is a workspace extension. VS Code routes their commands between extension hosts over its existing connection.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.21.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
-1. Run **Strata: Manage Local Connection Profiles** and add entries such as **Strata — Swift 1.5** and **Strata — DeepSeek**, with each endpoint, exact model ID, context limit and API key.
-2. In an SSH window, reload VS Code, then choose **gear → Change connection → Choose a saved profile on this PC**.
-3. Select the named profile. The SSH host tests the API and model, prepares its runtime and remembers the selection for this workspace. There are no repeated credential prompts.
+Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
-Profile metadata and keys are kept on your PC, with keys in SecretStorage. Remote connection settings contain only profile metadata, never the key. Credentials are retrieved through VS Code commands when the harness starts; the trusted remote harness receives them and may maintain its own runtime credential files. Requests still originate on the SSH host, which must be able to reach the endpoint. This does not add a local proxy or sync chats between hosts.
+Use **gear → Change connection** to configure the current connection. **Gear → Switch saved connection** is optional: switch between saved model connections or add another (Swift, DeepSeek, etc.). The last explicitly saved/selected connection becomes the default for new workspaces. Workspaces where you explicitly selected a connection keep that selection. No separate companion extension is required; the previous experimental Strata Connection Profiles package can be uninstalled.
 
-Use **gear → Manage local profiles** to edit or delete entries. After editing, restart the harness or select the profile again. If the companion or selected profile is missing, startup reports that explicitly instead of falling back to another server. Existing per-host connections remain supported. Profiles are local to the PC/VS Code profile and are not synced through Settings Sync.
+Earlier per-host connection settings migrate into SecretStorage if there is no saved default. Chats remain per workspace. Credentials are available to the trusted remote harness at runtime, but are not saved in its connection settings or sent to the webview. Upstream harness runtime credential storage is separate. SecretStorage does not provide cross-PC Settings Sync.
 
-For this private preview, both VSIX packages must be installed manually; neither extension is published in the Marketplace. Cross-host behaviour follows VS Code's supported command routing. Automated tests cover the profile flow, but actual Windows-to-SSH interaction needs verification on the user's PC.
+This private preview is not published on Marketplace. VS Code provides the remote installation button; Strata does not implement its own installer UI. Automated tests cover shared-secret connection reuse and failed writes. A real Windows-to-SSH installation and credential reuse should be verified on the user's PC.
 
 ## Features
 
@@ -53,7 +51,7 @@ For this private preview, both VSIX packages must be installed manually; neither
 
 ## Configuration
 
-Use **Change connection** for the address, API key, model and context window. Connection details are saved per extension host, outside project files. Thinking remains configurable in Settings. Restart the harness after changing thinking. Changing connection stops the old idle harness automatically; active turns must finish first.
+Use **Change connection** for the address, API key, model and context window. Connection details are saved in client-side SecretStorage, outside project files. Thinking remains configurable in Settings. Restart the harness after changing thinking. Changing connection stops the old idle harness automatically; active turns must finish first.
 
 Advanced users can override sourcePath, nodePath and harnessPath in remote settings. Set all three together, or leave all three blank for automatic setup. Legacy API/model settings are read during migration; the connection wizard manages subsequent changes. The configured context window must agree with the inference server. This preview sends text only.
 

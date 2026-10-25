@@ -5,5 +5,3 @@ docs/**
 package-lock.json
 *.vsix
 src/**
-
-profiles/**

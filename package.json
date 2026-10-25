@@ -2,7 +2,7 @@
   "name": "strata-harness",
   "displayName": "Strata Harness",
   "description": "Use the Strata coding harness in a VS Code sidebar.",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "publisher": "djblu",
   "license": "UNLICENSED",
   "private": true,
@@ -33,8 +33,7 @@
     "test": "node --test",
     "package": "vsce package --allow-missing-repository",
     "build": "esbuild src/code-blocks.cjs --bundle --minify --format=iife --global-name=CodeBlocks --outfile=media/code-blocks.js",
-    "vscode:prepublish": "npm run build",
-    "package:profiles": "cd profiles && ../node_modules/.bin/vsce package --allow-missing-repository --out ../strata-profiles-0.1.0.vsix"
+    "vscode:prepublish": "npm run build"
   },
   "contributes": {
     "commands": [
@@ -53,6 +52,10 @@
       {
         "command": "strata.connect",
         "title": "Strata: Connect to Server"
+      },
+      {
+        "command": "strata.switchConnection",
+        "title": "Strata: Switch Saved Connection"
       }
     ],
     "viewsContainers": {
