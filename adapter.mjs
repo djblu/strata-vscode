@@ -7,6 +7,7 @@ import {permissionContext} from './permission-context.cjs';
 const output = process.stdout.write.bind(process.stdout);
 console.log = (...args) => console.error(...args);
 let bridge, config, initializing, closing = false;
+let modeChanges=Promise.resolve();
 const active = new Set();
 const compacting = new Set();
 function emit(event) { output(JSON.stringify(event) + '\n'); }
@@ -60,6 +61,15 @@ async function handle(m) {
         } finally {compacting.delete(m.chatId);}
       } else await bridge.runTurn({...options,message:permissionContext(m.text,m.mode)});
     } finally { active.delete(m.chatId); emit({type: 'idle', chatId: m.chatId}); }
+  } else if (m.type === 'setMode') {
+    const change=modeChanges.then(async()=>{
+      if(typeof bridge.setMode!=='function')throw Error('This harness does not support live permission changes');
+      const result=await bridge.setMode(m.chatId,m.mode);
+      if(!result.applied)throw Error('The session is still starting. Try changing permissions again once it starts.');
+      emit({type:'permissionMode',chatId:m.chatId,mode:result.mode});
+    });
+    modeChanges=change.catch(()=>{});
+    await change;
   } else if (m.type === 'approve') {
     await bridge.approve({chatId: m.chatId, callId: m.callId, decision: m.decision});
   } else if (m.type === 'stop') {

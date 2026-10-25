@@ -7,7 +7,7 @@ import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {validate} from '../protocol.cjs';
 test('unknown modes and forged decisions fail closed',()=>{
- for(const mode of ['auto','full',null])assert.throws(()=>validate({type:'send',chatId:'chat',text:'hello',mode}));
+ for(const mode of ['auto','full',null]){assert.throws(()=>validate({type:'send',chatId:'chat',text:'hello',mode}));assert.throws(()=>validate({type:'setMode',chatId:'chat',mode}));}
  assert.equal(validate({type:'send',chatId:'chat',text:'hello',mode:'bypass'}).mode,'bypass');
  assert.throws(()=>validate({type:'approve',chatId:'chat',callId:'tool',decision:'allow-always'}));
  assert.throws(()=>validate({type:'send',chatId:'../other',text:'hello',mode:'manual'}));
@@ -18,6 +18,7 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  await writeFile(path.join(agent,'agent-bridge.mjs'),`
  export function createAgentBridge(){let end,frame;
  return {status:()=>({state:'idle'}),compactCommand:async(o)=>{o.onFrame({type:'delta',text:'Compacted fixture'});o.onFrame({type:'done'});},sessionOf:()=> 'session-test',_debug:()=>({rt:{gw:{rpc:async(method,args)=>{if(method!=='commands/execute'||args.line!=='/strata-context')throw Error('Unexpected RPC');return {result:{kind:'success',text:JSON.stringify({tokens:1234,window:8192})}};}}}}),runTurn:async(o)=>{frame=o.onFrame;frame({type:'agent-tool',tool:{id:'write-1',state:'proposed'}});await new Promise(r=>end=r);frame({type:'done'});},
+ setMode:async(chatId,mode)=>{if(chatId!=='chat')return {applied:false};await new Promise(r=>setTimeout(r,mode==='bypass'?30:1));return {applied:true,mode};},
  approve:async(o)=>{if(o.callId!=='write-1')throw Error('Not pending');frame({type:'delta',text:o.decision});},stop:async()=>{end?.();return {stopped:true};},close:async()=>{}};}`);
  const p=spawn(process.execPath,[new URL('../adapter.mjs',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});
  const messages=[];let error='';p.stderr.on('data',x=>error+=x);
@@ -35,6 +36,13 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  await wait(m=>m.type==='error'&&m.text==='Not pending');
  send({type:'approve',chatId:'chat',callId:'write-1',decision:'deny'});
  await wait(m=>m.frame?.text==='deny');
+ send({type:'setMode',chatId:'chat',mode:'bypass'});
+ send({type:'setMode',chatId:'chat',mode:'plan'});
+ await wait(m=>m.type==='permissionMode'&&m.mode==='plan');
+ assert.deepEqual(messages.filter(m=>m.type==='permissionMode').map(m=>m.mode),['bypass','plan']);
+ assert.equal(messages.some(m=>m.type==='idle'),false);
+ send({type:'setMode',chatId:'missing',mode:'manual'});
+ await wait(m=>m.type==='error'&&m.text.includes('still starting'));
  send({type:'stop',chatId:'chat'});
  await wait(m=>m.type==='stopped'&&m.result.stopped);
  await wait(m=>m.type==='idle');

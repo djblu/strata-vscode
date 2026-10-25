@@ -133,6 +133,7 @@ function activate(context) {
   }
   function receive(m) {
     if (m.type === 'ready') return;
+    if(m.type==='permissionMode'&&m.chatId===chatId&&validMode(m.mode)){permissionMode=m.mode;post({type:'permissionMode',mode:permissionMode});persist();return;}
     if (m.type === 'error') { contextFrame(m); add('error', m.text); return; }
     if (m.type === 'idle') { manualCompaction=false;contextFrame(m); busy = false; post({type: 'busy', value: false}); persist(); return; }
     if (m.type !== 'frame' || m.chatId !== chatId) return;
@@ -269,8 +270,8 @@ function activate(context) {
       else if (m.type === 'openChat') {if(typeof m.id!=='string'||!store.list().some(c=>c.id===m.id))throw Error('Chat not found');await switchChat(m.id);}
       else if (m.type === 'rename') await renameChat();
       else if (m.type === 'permissionMode') {
-        if(busy)throw Error('Wait for the current turn before changing permissions');
         if(!validMode(m.mode))throw Error('Invalid permission mode');
+        if(busy){await start();write({type:'setMode',chatId,mode:m.mode});return;}
         permissionMode=m.mode;await saveChat();post({type:'permissionMode',mode:permissionMode});
       }
       else if (m.type === 'send') {

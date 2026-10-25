@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.23.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.24.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -19,7 +19,7 @@ Runtime setup downloads Node 24 with SHA-256 verification against the official c
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.23.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.24.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
@@ -90,3 +90,5 @@ Harness installation reports elapsed time and completed npm registry requests ev
 The public `djblu/strata-runtimes` repository builds native bundles with GitHub Actions. Each build starts from the pinned upstream versions and runs session creation plus a streamed response against a loopback mock model API before packaging. It excludes Git metadata, installer logs and the nonportable dependency junction. The installer recreates that junction at the destination. No extension credentials, profiles, sessions or model weights are packaged.
 
 Publish the `.tar.gz` archives as immutable assets of a versioned runtime release, then update `runtime-manifest.json` with each asset URL, byte size and SHA-256 from the build's platform JSON. Ship the updated manifest with the extension. Do not replace existing release assets; create a new runtime version. Native build tooling is mirrored under `scripts/` and `.github/workflows/runtime.yml` here.
+
+Permission controls remain available during generation. Changes use the harness live session API and the displayed mode changes only after confirmation. Full Access allows pending approvals; Read Only rejects them. A change does not undo actions already executed.

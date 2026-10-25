@@ -104,7 +104,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
-  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('permission-control').disabled=value;if(value){closePermissionMenu();closeAddMenu();}$('add-context').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
+  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;if(value){closeAddMenu();}$('add-context').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
@@ -157,11 +157,10 @@ function showPermission(mode) {
 }
 function closePermissionMenu(){ $('permission-menu').hidden=true;$('permission-control').setAttribute?.('aria-expanded','false'); }
 $('permission-control').onclick=()=>{
-  if(working)return;
   if(!$('permission-menu').hidden){closePermissionMenu();return;}
   closeAddMenu();$('permission-menu').hidden=false;$('permission-control').setAttribute('aria-expanded','true');$('permission-'+($('mode').value||'manual')).focus();
 };
-for(const choice of ['manual','plan','bypass'])$('permission-'+choice).onclick=()=>{if(working)return;showPermission(choice);vscode.postMessage({type:'permissionMode',mode:choice});closePermissionMenu();$('permission-control').focus();};
+for(const choice of ['manual','plan','bypass'])$('permission-'+choice).onclick=()=>{vscode.postMessage({type:'permissionMode',mode:choice});closePermissionMenu();$('permission-control').focus();};
 document.addEventListener?.('click',e=>{if(!$('permission-menu').contains(e.target)&&!$('permission-control').contains(e.target))closePermissionMenu();});
 $('permission-menu').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();closePermissionMenu();$('permission-control').focus();}

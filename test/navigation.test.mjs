@@ -27,8 +27,13 @@ test('header shows active title and embedded list opens a selected session',asyn
  event({type:'restore',transcript:[],busy:false,mode:'bypass'});assert.equal($('mode').value,'bypass');assert.equal($('permission-control').dataset.mode,'bypass');
  event({type:'restore',transcript:[],busy:false,mode:'plan'});assert.equal($('mode').value,'plan');assert.equal($('permission-note').hidden,true);
  $('permission-control').click();assert.equal($('permission-menu').hidden,false);assert.equal($('permission-control').getAttribute('aria-expanded'),'true');
- $('permission-bypass').click();assert.equal(sent.at(-1).mode,'bypass');assert.equal($('permission-label').textContent,'Full Access');assert.equal($('permission-bypass').getAttribute('aria-checked'),'true');assert.equal($('permission-menu').hidden,true);
+ $('permission-bypass').click();assert.equal(sent.at(-1).mode,'bypass');assert.equal($('permission-label').textContent,'Read Only');event({type:'permissionMode',mode:'bypass'});assert.equal($('permission-label').textContent,'Full Access');assert.equal($('permission-bypass').getAttribute('aria-checked'),'true');assert.equal($('permission-menu').hidden,true);
  $('permission-control').click();$('permission-menu').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Home',bubbles:true}));assert.equal(dom.window.document.activeElement,$('permission-manual'));
  $('permission-menu').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal($('permission-menu').hidden,true);assert.equal(dom.window.document.activeElement,$('permission-control'));
+ event({type:'busy',value:true});assert.equal($('permission-control').disabled,false);
+ $('permission-control').click();assert.equal($('permission-menu').hidden,false);
+ $('permission-manual').click();assert.equal(sent.at(-1).mode,'manual');assert.equal($('permission-label').textContent,'Full Access');
+ event({type:'permissionMode',mode:'manual'});assert.equal($('permission-label').textContent,'Ask Permission');
+ assert.equal($('stop').hidden,false);event({type:'busy',value:false});
  $('new').click();assert.equal(sent.at(-1).type,'new');dom.window.close();
 });
