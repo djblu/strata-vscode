@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install on this server
 
 1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.16.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
+2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.17.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
 3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
 4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
 
@@ -70,3 +70,5 @@ The automated tests cover invalid permission modes, concurrency, rejected approv
 This is an initial private preview, not a Marketplace release. There is no session browser, image attachment support or custom inline edit-diff UI yet. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
 
 The + menu inserts context into your draft for review before sending. File/folder references let the harness read relevant contents on demand; Git changes include staged and unstaged diffs, exclude untracked contents, and are limited to 100,000 characters. Compaction shows a shimmering status while running (respects reduced motion), followed by a confirmation in chat when the harness reports success.
+
+The bottom status line shimmers throughout an active turn, including thinking and tool activity, and returns to normal when idle. Reduced-motion settings disable the animation.
