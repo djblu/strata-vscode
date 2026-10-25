@@ -104,7 +104,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
-  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;if(value){closeAddMenu();}$('add-context').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
+  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
@@ -175,10 +175,10 @@ $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())ret
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
 for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect','profiles'])$(type).onclick=()=>vscode.postMessage({type});
 function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}
-$('add-context').onclick=()=>{if(working)return;const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
+$('add-context').onclick=()=>{const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
 for(const action of ['files','selection','git','plan'])$('add-'+action).onclick=()=>{
-  if(working)return;closeAddMenu();
-  if(action==='plan'){showPermission('plan');vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
+  closeAddMenu();
+  if(action==='plan'){vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
   else vscode.postMessage({type:action==='selection'?'add-context':'add-'+action});
 };
 document.addEventListener?.('click',e=>{if(!$('add-menu').contains(e.target)&&!$('add-context').contains(e.target))closeAddMenu();});

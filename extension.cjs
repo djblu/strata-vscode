@@ -246,7 +246,6 @@ function activate(context) {
       }
       else if (m.type === 'add-context') await vscode.commands.executeCommand('strata.addSelection');
       else if (m.type === 'add-files' || m.type === 'add-git') {
-        if(busy)throw Error('Wait for the current turn before adding context');
         const root=vscode.workspace.workspaceFolders?.[0]?.uri;
         if(!root||root.scheme!=='file')throw Error('Open a filesystem workspace first');
         const originalChat=chatId;
@@ -259,7 +258,7 @@ function activate(context) {
           if(selected.some(uri=>uri.scheme!=='file'))throw Error('Choose filesystem paths');
           text=await workspaceReferences(root.fsPath,selected.map(uri=>uri.fsPath));
         }else text=await gitChanges(root.fsPath);
-        if(chatId!==originalChat||busy)throw Error('Chat changed while adding context; add it again to the intended draft');
+        if(chatId!==originalChat)throw Error('Chat changed while adding context; add it again to the intended draft');
         post({type:'selection',text});
       }
       else if (m.type === 'model-settings') await vscode.commands.executeCommand('workbench.action.openSettings','@ext:djblu.strata-harness');

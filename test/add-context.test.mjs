@@ -24,5 +24,16 @@ test('add menu routes context actions, plan preserves draft, compaction animates
  $('prompt').value='My task';$('add-context').click();$('add-plan').click();assert.equal(sent.at(-1).mode,'plan');assert.match($('prompt').value,/My task/);assert.match($('prompt').value,/do not make changes/);
  emit({type:'contextInfo',compacting:true});assert.equal($('compaction').hidden,false);assert.equal($('compaction').classList.contains('shimmer'),true);
  emit({type:'contextInfo',compacting:false});emit({type:'entry',role:'compaction',text:'Context automatically compacted'});assert.equal($('compaction').hidden,true);assert.match($('history').textContent,/Context automatically compacted/);assert.ok($('history').querySelector('.compaction svg'));
- emit({type:'busy',value:true});assert.equal($('add-context').disabled,true);dom.window.close();
+ emit({type:'permissionMode',mode:'manual'});
+ emit({type:'busy',value:true});assert.equal($('add-context').disabled,false);
+ for(const kind of ['files','selection','git']){
+  $('add-context').click();assert.equal($('add-menu').hidden,false);$('add-'+kind).click();
+  assert.equal(sent.at(-1).type,kind==='selection'?'add-context':'add-'+kind);
+ }
+ emit({type:'selection',text:'\nFile: example.txt'});assert.match($('prompt').value,/example.txt/);
+ $('add-context').click();$('add-plan').click();assert.equal(sent.at(-1).mode,'plan');
+ assert.equal($('permission-label').textContent,'Ask Permission');
+ emit({type:'permissionMode',mode:'plan'});assert.equal($('permission-label').textContent,'Read Only');
+ assert.equal($('stop').hidden,false);assert.equal(sent.some(m=>m.type==='send'),false);
+ emit({type:'busy',value:false});assert.match($('prompt').value,/example.txt/);dom.window.close();
 });
