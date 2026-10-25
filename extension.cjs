@@ -6,9 +6,12 @@ const {randomUUID, createHash} = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 let shutdown;
+const {updateContext,externalURL}=require('./context-state.cjs');
 function activate(context) {
   let view, child, ready, busy = false, closing = false;
   let chatId = context.workspaceState.get('chatId') || randomUUID();
+  let contextInfo = {...context.workspaceState.get('contextInfo', {}), compacting:false};
+  function contextFrame(f) {const next=updateContext(contextInfo,f);if(next.used===contextInfo.used&&next.max===contextInfo.max&&next.compacting===contextInfo.compacting)return;contextInfo=next;post({type:'contextInfo',...contextInfo});persist();}
   let transcript = context.workspaceState.get('transcript') || [];
   let timer;
   const pending = new Map();
@@ -20,6 +23,7 @@ function activate(context) {
     timer = setTimeout(() => {
       context.workspaceState.update('transcript', transcript);
       context.workspaceState.update('chatId', chatId);
+      context.workspaceState.update('contextInfo', contextInfo);
     }, 1000);
   }
   function add(role, text) {
@@ -30,10 +34,11 @@ function activate(context) {
   }
   function receive(m) {
     if (m.type === 'ready') return;
-    if (m.type === 'error') { add('error', m.text); return; }
-    if (m.type === 'idle') { busy = false; post({type: 'busy', value: false}); persist(); return; }
+    if (m.type === 'error') { contextFrame(m); add('error', m.text); return; }
+    if (m.type === 'idle') { contextFrame(m); busy = false; post({type: 'busy', value: false}); persist(); return; }
     if (m.type !== 'frame' || m.chatId !== chatId) return;
     const f = m.frame;
+    contextFrame(f);
     if (f.type === 'delta' || f.type === 'reasoning') {
       const role = f.type === 'delta' ? 'assistant' : 'reasoning';
       const text = String(f.text || '');
@@ -47,7 +52,7 @@ function activate(context) {
       post({type: 'tool', tool: t});
     } else if (f.type === 'error') add('error', f.message || f.text || JSON.stringify(f));
     else if (f.type === 'status') post({type: 'status', text: f.text || 'Ready'});
-    else if (f.type === 'context') post({type: 'status', text: `Context: ${f.contextTokens ?? '?'} / ${f.contextMax ?? '?'}`});
+    else if (f.type === 'context') { /* Displayed in the composer, independently of turn status. */ }
     else if (f.type === 'notice') add('notice', f.text || f.message || 'Harness notice');
     else if (f.type === 'start') post({type: 'status', text: `Running · ${f.model || 'Strata'}`});
     else if (f.type === 'done') post({type: 'status', text: `Finished · ${f.tokensIn ?? '?'} input / ${f.tokensOut ?? '?'} output tokens`});
@@ -96,6 +101,7 @@ function activate(context) {
     closing = true;
     if (child) { const p = child; write({type: 'close'}); setTimeout(() => {if (p.exitCode === null) p.kill('SIGTERM');}, 25000).unref(); }
     clearTimeout(timer);
+    await context.workspaceState.update('contextInfo', contextInfo);
     await context.workspaceState.update('transcript', transcript);
     await context.workspaceState.update('chatId', chatId);
   };
@@ -122,7 +128,11 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {post({type:'restore',transcript,busy}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      else if (m.type === 'openLink') {
+        const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
+        await vscode.env.openExternal(vscode.Uri.parse(url));
+      }
       else if (m.type === 'copyCode') {
         if (typeof m.text !== 'string' || m.text.length > 1000000 || typeof m.id !== 'number') throw Error('Invalid clipboard request');
         try {await vscode.env.clipboard.writeText(m.text); post({type:'copied',id:m.id});}
@@ -130,7 +140,7 @@ function activate(context) {
       }
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
-      else if (m.type === 'new') {if (busy) throw Error('Stop the current turn first'); chatId = randomUUID(); transcript = []; pending.clear(); persist(); post({type:'restore',transcript,busy});}
+      else if (m.type === 'new') {if (busy) throw Error('Stop the current turn first'); chatId = randomUUID(); contextInfo={};post({type:'contextInfo',...contextInfo}); transcript = []; pending.clear(); persist(); post({type:'restore',transcript,busy});}
       else if (m.type === 'send') {
         if (busy) return;
         if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');

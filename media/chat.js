@@ -9,7 +9,7 @@ const copies=new Map();let copyId=0;
 function formatted(item) {
   if(item && ['assistant','reasoning'].includes(item.role) && typeof CodeBlocks!=='undefined') CodeBlocks.render(item.body,item.text,(text,button)=>{
     const id=++copyId;copies.set(id,button);button.disabled=true;vscode.postMessage({type:'copyCode',id,text});
-  });
+  },url=>vscode.postMessage({type:'openLink',url}));
 }
 function entry(role,text) {
   formatted(last);
@@ -35,6 +35,13 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='entry')entry(m.role,m.text);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
+  else if(m.type==='contextInfo'){
+    const known=Number.isFinite(m.used)&&Number.isFinite(m.max)&&m.max>0;
+    const left=known?Math.max(0,m.max-m.used):null;
+    $('context-usage').textContent=known?`${m.used.toLocaleString()} / ${m.max.toLocaleString()} tokens · ${left.toLocaleString()} left (${Math.max(0,Math.round(left/m.max*100))}%)`:'Context usage not yet reported';
+    $('context-usage').title='Latest reported context usage. Remaining window is shared by prompts, tools and replies; the harness may compact earlier to reserve space.';
+    $('compaction').hidden=!m.compacting;
+  }
   else if(m.type==='status')$('status').textContent=m.text;
   else if(m.type==='selection'){$('prompt').value+=m.text;$('prompt').focus();}
   else if(m.type==='tool'){

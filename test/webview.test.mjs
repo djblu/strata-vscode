@@ -27,4 +27,8 @@ test('1000 streamed chunks preserve their text and tool content remains text',as
  const reasoning=elements.get('history').children[2];assert.equal(reasoning.tag,'details');assert.notEqual(reasoning.open,true);assert.equal(reasoning.children[0].tag,'summary');
  listener({data:{type:'busy',value:true}});assert.equal(elements.get('send').hidden,true);assert.equal(elements.get('stop').hidden,false);
  listener({data:{type:'busy',value:false}});assert.equal(elements.get('send').hidden,false);assert.equal(elements.get('stop').hidden,true);
+ listener({data:{type:'contextInfo',used:200000,max:262144,compacting:true}});
+ assert.match(elements.get('context-usage').textContent,/62,144 left/);assert.equal(elements.get('compaction').hidden,false);
+ listener({data:{type:'contextInfo',used:30000,max:262144,compacting:false}});assert.equal(elements.get('compaction').hidden,true);
+ listener({data:{type:'contextInfo'}});assert.equal(elements.get('context-usage').textContent,'Context usage not yet reported');
 });
