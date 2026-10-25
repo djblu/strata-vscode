@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install on this server
 
 1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.13.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
+2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.14.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
 3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
 4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
 
@@ -19,7 +19,7 @@ The required Node 24 runtime and pinned dsh package have already been installed 
 - Left-aligned, compact reasoning and tool activity rows with icons, descriptive labels and expandable details. Approval requests expand automatically and retain their controls.
 - Streamed answers with collapsed reasoning and expandable tool details, batched rendering and debounced transcript storage.
 - **Ask before actions** mode, with tool previews and Approve once / Deny controls.
-- **Full control** mode runs commands and file changes without approval prompts, using the upstream bypass mode. The default for new chats remains Ask before actions. The permission choice is saved per chat and restored on reload; a green shield indicates Full control. Each turn also tells the model the current permission scope, so Full control instructs it to proceed with task-relevant actions rather than asking permission in prose.
+- **Full control** mode runs commands and file changes without approval prompts, using the upstream bypass mode. The default for new chats remains Ask before actions. The permission choice is saved per chat and restored on reload; a yellow shield and Full Access label indicate Full control; Ask Permission and Read Only use neutral icons. The shield opens an approval menu with descriptions and a selected checkmark. Each turn also tells the model the current permission scope, so Full control instructs it to proceed with task-relevant actions rather than asking permission in prose.
 - **Read only** mode, using the upstream harness's plan permission mode.
 - Hover or keyboard-focus a user message to show its send time, Copy and Edit controls. Edit loads a copy into the composer; resending appends a new turn and does not rewind completed actions. Cancel restores your previous draft. Older messages without timestamps show no time.
 - **Stop** cancels the harness turn, including pending tools.

@@ -92,7 +92,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
 function busy(value) {
-  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
+  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('permission-control').disabled=value;if(value)closePermissionMenu();$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
@@ -132,11 +132,29 @@ window.addEventListener('message',({data:m})=>{
   }
 });
 function showPermission(mode) {
+  closePermissionMenu();
   $('mode').value=['manual','plan','bypass'].includes(mode)?mode:'manual';
   $('permission-note').hidden=$('mode').value!=='bypass';
-  $('permission-control').title='Permissions: '+({manual:'Ask before actions',plan:'Read only',bypass:'Full control'}[$('mode').value]);
+  $('permission-control').title='Permissions: '+({manual:'Ask Permission',plan:'Read Only',bypass:'Full Access'}[$('mode').value]);
   $('permission-control').dataset.mode=$('mode').value;
+  $('permission-label').textContent={manual:'Ask Permission',plan:'Read Only',bypass:'Full Access'}[$('mode').value];
+  for(const choice of ['manual','plan','bypass'])$('permission-'+choice).setAttribute?.('aria-checked',String(choice===$('mode').value));
 }
+function closePermissionMenu(){ $('permission-menu').hidden=true;$('permission-control').setAttribute?.('aria-expanded','false'); }
+$('permission-control').onclick=()=>{
+  if(working)return;
+  if(!$('permission-menu').hidden){closePermissionMenu();return;}
+  $('permission-menu').hidden=false;$('permission-control').setAttribute('aria-expanded','true');$('permission-'+($('mode').value||'manual')).focus();
+};
+for(const choice of ['manual','plan','bypass'])$('permission-'+choice).onclick=()=>{if(working)return;showPermission(choice);vscode.postMessage({type:'permissionMode',mode:choice});closePermissionMenu();$('permission-control').focus();};
+document.addEventListener?.('click',e=>{if(!$('permission-menu').contains(e.target)&&!$('permission-control').contains(e.target))closePermissionMenu();});
+$('permission-menu').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();closePermissionMenu();$('permission-control').focus();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+    e.preventDefault();const choices=['manual','plan','bypass'].map(x=>$('permission-'+x));const index=choices.indexOf(document.activeElement);
+    choices[e.key==='Home'?0:e.key==='End'?2:(index+(e.key==='ArrowDown'?1:2))%3].focus();
+  }
+});
 $('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.postMessage({type:'permissionMode',mode:$('mode').value});});
 
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};

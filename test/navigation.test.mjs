@@ -22,9 +22,13 @@ test('header shows active title and embedded list opens a selected session',asyn
  assert.equal($('chat-title').textContent,'Build app');assert.equal($('composer-footer').hidden,false);assert.equal($('chats').hidden,false);
  event({type:'modelInfo',model:'swift-1.5-q4_k_m',thinking:'Low'});assert.equal($('model-label').textContent,'swift-1.5-q4_k_m · Low');
  $('model-settings').click();assert.equal(sent.at(-1).type,'model-settings');$('add-context').click();assert.equal(sent.at(-1).type,'add-context');
- $('mode').value='bypass';$('mode').dispatchEvent(new dom.window.Event('change'));assert.equal($('permission-control').title,'Permissions: Full control');assert.equal($('permission-note').hidden,false);
+ $('mode').value='bypass';$('mode').dispatchEvent(new dom.window.Event('change'));assert.equal($('permission-control').title,'Permissions: Full Access');assert.equal($('permission-note').hidden,false);
  assert.equal(sent.at(-1).type,'permissionMode');assert.equal(sent.at(-1).mode,'bypass');
  event({type:'restore',transcript:[],busy:false,mode:'bypass'});assert.equal($('mode').value,'bypass');assert.equal($('permission-control').dataset.mode,'bypass');
  event({type:'restore',transcript:[],busy:false,mode:'plan'});assert.equal($('mode').value,'plan');assert.equal($('permission-note').hidden,true);
+ $('permission-control').click();assert.equal($('permission-menu').hidden,false);assert.equal($('permission-control').getAttribute('aria-expanded'),'true');
+ $('permission-bypass').click();assert.equal(sent.at(-1).mode,'bypass');assert.equal($('permission-label').textContent,'Full Access');assert.equal($('permission-bypass').getAttribute('aria-checked'),'true');assert.equal($('permission-menu').hidden,true);
+ $('permission-control').click();$('permission-menu').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Home',bubbles:true}));assert.equal(dom.window.document.activeElement,$('permission-manual'));
+ $('permission-menu').dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal($('permission-menu').hidden,true);assert.equal(dom.window.document.activeElement,$('permission-control'));
  $('new').click();assert.equal(sent.at(-1).type,'new');dom.window.close();
 });
