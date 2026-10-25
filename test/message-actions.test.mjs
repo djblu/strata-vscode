@@ -1,0 +1,22 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {JSDOM} from 'jsdom';
+import html from '../ui.cjs';
+test('user messages retain send time and support exact copy, edit, cancel and resend',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});
+ const sent=[];dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});
+ dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const $=id=>dom.window.document.getElementById(id);const event=m=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data:m}));
+ const original='Run this command\n  echo "hello"';const timestamp=1792938600000;
+ event({type:'restore',busy:false,transcript:[{role:'user',text:original,timestamp}]});
+ const message=$('history').querySelector('.user');assert.equal(message.querySelector('time').dateTime,new Date(timestamp).toISOString());
+ message.querySelector('.copy-message').click();assert.equal(sent.at(-1).text,original);assert.equal(sent.at(-1).type,'copyCode');
+ event({type:'copied',id:sent.at(-1).id});assert.equal(message.querySelector('.copy-message').textContent,'Copied!');
+ $('prompt').value='unsent draft';message.querySelector('.edit-message').click();assert.equal($('prompt').value,original);assert.equal($('edit-notice').hidden,false);
+ $('cancel-edit').click();assert.equal($('prompt').value,'unsent draft');assert.equal($('edit-notice').hidden,true);
+ message.querySelector('.edit-message').click();$('prompt').value='Changed request';$('send').click();assert.equal(sent.at(-1).text,'Changed request');assert.equal(sent.at(-1).type,'send');assert.equal(message.querySelector('.content').textContent,original);assert.equal($('edit-notice').hidden,true);
+ event({type:'busy',value:true});assert.equal(message.querySelector('.edit-message').disabled,true);
+ event({type:'restore',busy:false,transcript:[{role:'user',text:'Legacy'}]});assert.equal($('history').querySelector('time').textContent,'');
+ dom.window.close();
+});

@@ -38,13 +38,28 @@ function formatted(item) {
     const id=++copyId;copies.set(id,button);button.disabled=true;vscode.postMessage({type:'copyCode',id,text});
   },url=>vscode.postMessage({type:'openLink',url}));
 }
-function entry(role,text) {
+let editing=false,previousDraft='';
+function endEdit(restoreDraft=false) {if(restoreDraft)$('prompt').value=previousDraft;editing=false;previousDraft='';$('edit-notice').hidden=true;$('send').title='Send message (Enter)';}
+$('cancel-edit').onclick=()=>endEdit(true);
+function entry(role,text,timestamp) {
   formatted(last);
   const reasoning=role==='reasoning';
   const box=document.createElement(reasoning?'details':'div');box.className=`entry ${role}`;
   const title=document.createElement(reasoning?'summary':'label');title.textContent=reasoning?(working?'Thinking…':'Reasoning'):role;
   const body=document.createElement('div');body.className='content';body.textContent=text;
-  box.append(title,body);history.append(box);last={role,body,text};formatted(last);
+  box.append(title,body);
+  if(role==='user'){
+    const actions=document.createElement('div');actions.className='message-actions';
+    const time=document.createElement('time');
+    if(Number.isFinite(timestamp)){const date=new Date(timestamp);time.dateTime=date.toISOString();time.textContent=date.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});time.title=date.toLocaleString();}
+    else {time.textContent='';time.title='Send time unavailable for this older message';}
+    const copy=document.createElement('button');copy.type='button';copy.className='copy-message';copy.textContent='⧉';copy.dataset.copyLabel='⧉';copy.title='Copy message';copy.setAttribute('aria-label','Copy message');
+    copy.onclick=()=>{const id=++copyId;copies.set(id,copy);copy.disabled=true;vscode.postMessage({type:'copyCode',id,text});};
+    const edit=document.createElement('button');edit.type='button';edit.className='edit-message';edit.textContent='✎';edit.title='Edit and resend';edit.setAttribute('aria-label','Edit and resend');edit.disabled=working;
+    edit.onclick=()=>{if(working)return;if(!editing)previousDraft=$('prompt').value;editing=true;$('prompt').value=text;$('edit-notice').hidden=false;$('send').title='Resend edited message (Enter)';$('prompt').focus();};
+    actions.append(time,copy,edit);box.append(actions);
+  }
+  history.append(box);last={role,body,text};formatted(last);
   while(history.children.length>120)history.firstChild.remove();
   scroll();
 }
@@ -52,16 +67,17 @@ function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!b
 function busy(value) {
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   document.body.classList.toggle('working',value);renderChats();
+  for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
   if(!value)formatted(last);
   if(!value)for(const title of history.querySelectorAll('.reasoning summary'))title.textContent='Reasoning';
 }
 window.addEventListener('message',({data:m})=>{
   if(m.type!=='chunk')flush();
-  if(m.type==='copied'){const button=copies.get(m.id);if(button){button.disabled=false;button.textContent=m.error?'Try again':'Copied!';copies.delete(m.id);setTimeout(()=>{button.textContent='Copy';},1800);}}
+  if(m.type==='copied'){const button=copies.get(m.id);if(button){button.disabled=false;button.textContent=m.error?'Try again':'Copied!';copies.delete(m.id);setTimeout(()=>{button.textContent=button.dataset.copyLabel||'Copy';},1800);}}
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
-  else if(m.type==='restore'){history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text);scroll();}
-  else if(m.type==='entry')entry(m.role,m.text);
+  else if(m.type==='restore'){endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
+  else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
   else if(m.type==='contextInfo'){
@@ -85,7 +101,7 @@ window.addEventListener('message',({data:m})=>{
   }
 });
 $('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';});
-$('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';};
+$('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working)$('send').click();}});
 for(const type of ['new','stop','key','changes','chats','rename'])$(type).onclick=()=>vscode.postMessage({type});
 vscode.postMessage({type:'loaded'});

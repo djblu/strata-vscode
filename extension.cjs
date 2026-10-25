@@ -47,10 +47,11 @@ function activate(context) {
     if(name?.trim()){await store.rename(id,name.trim());chatMetadata();}
   }
   function add(role, text) {
-    transcript.push({role, text});
+    const timestamp=Date.now();
+    transcript.push({role, text, timestamp});
     // UI transcript is bounded; the full durable conversation remains in the harness.
     while (transcript.length > 100 || (transcript.length > 1 && transcript.reduce((n, x) => n + x.text.length, 0) > 250000)) transcript.shift();
-    post({type: 'entry', role, text}); persist();
+    post({type: 'entry', role, text, timestamp}); persist();
   }
   function receive(m) {
     if (m.type === 'ready') return;
