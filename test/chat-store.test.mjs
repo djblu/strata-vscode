@@ -15,3 +15,10 @@ test('an empty saved chat gets its first prompt title',async()=>{
  const store=new ChatStore(memory());await store.save({id:'a',transcript:[],contextInfo:{}});
  await store.save({id:'a',transcript:[{role:'user',text:'Build my app'}],contextInfo:{}});assert.equal(store.list()[0].title,'Build my app');
 });
+
+test('saving an unchanged chat preserves its activity date',async()=>{
+ const store=new ChatStore(memory());const chat={id:'a',transcript:[{role:'user',text:'Hello'}],contextInfo:{}};
+ await store.save(chat);const before=store.list()[0].updatedAt;
+ await new Promise(r=>setTimeout(r,10));await store.save(chat);assert.equal(store.list()[0].updatedAt,before);
+ chat.transcript.push({role:'assistant',text:'Hi'});await store.save(chat);assert.ok(store.list()[0].updatedAt>before);
+});

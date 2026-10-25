@@ -7,8 +7,10 @@ class ChatStore {
     const snapshot=JSON.parse(JSON.stringify(chat));
     const task=this.queue.then(async()=>{
       const old=this.list().find(item=>item.id===snapshot.id);
+      const previous=this.load(snapshot.id);
+      const changed=!previous||previous.transcript.length!==snapshot.transcript.length||previous.transcript.at(-1)?.text!==snapshot.transcript.at(-1)?.text;
       const first=snapshot.transcript.find(item=>item.role==='user')?.text;
-      const metadata={id:snapshot.id,title:old?.customTitle?old.title:(first?.replace(/\s+/g,' ').trim().slice(0,80)||old?.title||'New chat'),customTitle:old?.customTitle||false,updatedAt:Date.now()};
+      const metadata={id:snapshot.id,title:old?.customTitle?old.title:(first?.replace(/\s+/g,' ').trim().slice(0,80)||old?.title||'New chat'),customTitle:old?.customTitle||false,updatedAt:changed?Date.now():(old?.updatedAt||Date.now())};
       await this.state.update('savedChat:'+snapshot.id,snapshot);
       await this.state.update('savedChats',[metadata,...this.list().filter(item=>item.id!==snapshot.id)]);
       await this.state.update('activeChat',snapshot.id);

@@ -7,9 +7,14 @@ let page='chat',chatItems=[],activeChat;
 function showPage(next) {
   page=next;const listing=page==='chats';
   $('chat-page').hidden=!listing;history.hidden=listing;$('composer-footer').hidden=listing;
-  $('chats').hidden=listing;$('rename').hidden=listing;
+  $('chats').hidden=listing;$('rename').hidden=listing;$('recent').hidden=!listing;document.body.classList.toggle('chat-list-page',listing);
   const title=chatItems.find(c=>c.id===activeChat)?.title||'New chat';
   $('chat-title').textContent=listing?'Chats':title;$('chat-title').title=listing?'Saved chats':title;
+}
+function relativeAge(timestamp) {
+  const seconds=Math.max(0,Math.floor((Date.now()-timestamp)/1000));
+  for(const [unit,size] of [['y',31536000],['mo',2592000],['w',604800],['d',86400],['h',3600],['m',60]])if(seconds>=size)return `${Math.floor(seconds/size)}${unit}`;
+  return 'now';
 }
 function renderChats() {
   const query=$('chat-search').value.trim().toLowerCase();$('chat-list').replaceChildren();
@@ -17,12 +22,14 @@ function renderChats() {
   for(const chat of items){
     const row=document.createElement('button');row.className='chat-row';row.disabled=working;
     const name=document.createElement('span');name.className='chat-row-title';name.textContent=chat.title;
-    const date=document.createElement('span');date.className='chat-row-date';date.textContent=new Date(chat.updatedAt).toLocaleDateString(undefined,{month:'short',day:'numeric'})+(chat.id===activeChat?' · Current':'');
+    const date=document.createElement('span');date.className='chat-row-date';date.textContent=relativeAge(chat.updatedAt);date.title=new Date(chat.updatedAt).toLocaleString();row.title=chat.title;
     row.append(name,date);row.onclick=()=>vscode.postMessage({type:'openChat',id:chat.id});$('chat-list').append(row);
   }
-  if(!items.length){const empty=document.createElement('p');empty.className='empty-chats';empty.textContent=query?'No matching chats.':'Start a new chat using ＋ above.';$('chat-list').append(empty);}
+  if(!items.length){const empty=document.createElement('p');empty.className='empty-chats';empty.textContent=query?'No matching chats.':'Start a conversation with New chat above.';$('chat-list').append(empty);}
 }
 $('chat-search').addEventListener('input',renderChats);
+$('recent').onclick=()=>{const search=$('chat-search');search.hidden=!search.hidden;if(!search.hidden)search.focus();else{search.value='';renderChats();}};
+$('settings').onclick=()=>{$('settings-menu').hidden=!$('settings-menu').hidden;};
 function scroll() {if(follow)history.scrollTop=history.scrollHeight;}
 history.addEventListener('scroll',()=>{follow=history.scrollHeight-history.scrollTop-history.clientHeight<80;});
 const copies=new Map();let copyId=0;

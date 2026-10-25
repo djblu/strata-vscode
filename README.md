@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install on this server
 
 1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.5.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
+2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.6.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
 3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
 4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
 
@@ -20,7 +20,7 @@ The required Node 24 runtime and pinned dsh package have already been installed 
 - **Full control** mode runs commands and file changes without approval prompts, using the upstream bypass mode. The default remains Ask before actions.
 - **Read only** mode, using the upstream harness's plan permission mode.
 - **Stop** cancels the harness turn, including pending tools.
-- **← Back** opens an embedded, searchable chat-list page of saved conversations for this workspace. Select one to resume its original harness session. Titles come from the first prompt; use **Rename current chat** (✎) to change a title. **＋** at the top right starts a new chat and preserves the old conversation. The active chat title appears in the header.
+- **← Back** opens an embedded, searchable chat-list page of saved conversations for this workspace. Select one to resume its original harness session. Titles come from the first prompt; use **Rename current chat** (✎) to change a title. **＋** at the top right starts a new chat and preserves the old conversation. The active chat title appears in the header. Chat-list rows show relative ages on the right; the history icon toggles search, the gear opens settings, and the compose icon starts a new chat.
 - Chat display history and context usage are saved separately per conversation, approximately once per second during activity and on switching/closing. Your previously saved current conversation is migrated automatically. Wait for a turn to finish or stop it before switching.
 - **Strata: Add Editor Selection** adds selected text to the prompt.
 - **Review changes** opens VS Code Source Control for native Git diff review.
