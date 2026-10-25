@@ -42,11 +42,11 @@ function formatted(item) {
   if(item.formatTimer){clearTimeout(item.formatTimer);item.formatTimer=undefined;}
   if(!['assistant','reasoning'].includes(item.role)||typeof CodeBlocks==='undefined'||item.rendered===item.text)return;
   // Only re-render the changing message, never the conversation or persisted sessions.
-  const positions=Array.from(item.body.querySelectorAll('pre')).map(pre=>pre.scrollLeft);
+  const positions=Array.from(item.body.querySelectorAll('pre, .markdown-table')).map(pre=>pre.scrollLeft);
   CodeBlocks.render(item.body,item.text,(text,button)=>{
     const id=++copyId;copies.set(id,button);button.disabled=true;vscode.postMessage({type:'copyCode',id,text});
   },url=>vscode.postMessage({type:'openLink',url}));
-  item.body.querySelectorAll('pre').forEach((pre,index)=>{pre.scrollLeft=positions[index]||0;});
+  item.body.querySelectorAll('pre, .markdown-table').forEach((pre,index)=>{pre.scrollLeft=positions[index]||0;});
   item.rendered=item.text;scroll();
 }
 function formatStreaming(item) {

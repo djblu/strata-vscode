@@ -34,3 +34,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 #status{width:fit-content;max-width:100%}.working #status:before{animation:none}
 
 #connection-status{font-size:11px;color:var(--vscode-descriptionForeground);padding:6px 9px;overflow-wrap:anywhere;max-width:320px}
+
+.markdown-table{max-width:100%;overflow-x:auto;margin:12px 0;white-space:normal;border:1px solid var(--vscode-panel-border);border-radius:10px}.markdown-table table{border-collapse:collapse;width:100%;font-size:inherit;line-height:1.6}.markdown-table th,.markdown-table td{padding:8px 12px;border-bottom:1px solid var(--vscode-panel-border);vertical-align:top;min-width:90px;overflow-wrap:normal}.markdown-table th{font-weight:600;background:var(--vscode-textCodeBlock-background,var(--vscode-editor-background))}.markdown-table tbody tr:last-child td{border-bottom:0}.markdown-table code{background:var(--vscode-textCodeBlock-background);border-radius:4px;padding:2px 4px;font-family:var(--vscode-editor-font-family)}

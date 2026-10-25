@@ -27,3 +27,27 @@ test('markdown and bare links open destinations while code and unsafe links stay
  const links=body.querySelectorAll('a');assert.equal(links.length,2);assert.equal(links[0].textContent,'Repository');
  links[0].click();assert.equal(opened,'https://github.com/djblu/strata-vscode');assert.equal(links[1].href,'https://example.com/test');
 });
+test('plain text listings retain spacing and copy exactly',()=>{
+ const dom=new JSDOM('<div></div>'),body=dom.window.document.querySelector('div');let copied;
+ const listing='ai/\n  nested/\nfile.txt | literal pipe';
+ for(const label of ['','text','plaintext','txt']){
+  renderer.render(body,'```'+label+'\n'+listing+'\n```',text=>copied=text);
+  assert.equal(body.querySelector('.code-header span').textContent,'Plain text');
+  body.querySelector('button').click();assert.equal(copied,listing);assert.equal(body.querySelector('table'),null);
+ }
+});
+test('Markdown tables support streaming, inline formatting, alignment and escaped pipes safely',()=>{
+ const dom=new JSDOM('<div></div>'),body=dom.window.document.querySelector('div');let opened;
+ const text='**Files**\n| Name | Size | Note |\n| :--- | ---: | :---: |\n| **file.txt** | 12 KB | `a|b` |\n| [Docs](https://example.com) | 2 KB | a\\|b |\n\nAfter table';
+ renderer.render(body,text,()=>{},url=>opened=url);
+ assert.equal(body.querySelectorAll('thead th').length,3);assert.equal(body.querySelectorAll('tbody tr').length,2);
+ assert.equal(body.querySelector('tbody strong').textContent,'file.txt');assert.equal(body.querySelector('tbody code').textContent,'a|b');
+ assert.equal(body.querySelector('tbody tr:last-child td:last-child').textContent,'a|b');
+ assert.equal(body.querySelectorAll('th')[1].style.textAlign,'right');
+ body.querySelector('a').click();assert.equal(opened,'https://example.com/');
+ assert.match(body.textContent,/After table/);
+ renderer.render(body,'| Name | Value |\n| --- | --- |\n| <img src=x onerror=alert(1)> | partial',()=>{});
+ assert.equal(body.querySelector('img'),null);assert.equal(body.querySelector('td:last-child').textContent,'partial');
+ renderer.render(body,'Run a | b\nthen continue',()=>{});assert.equal(body.querySelector('table'),null);
+ renderer.render(body,'| Name | Value |\n| --',()=>{});assert.equal(body.querySelector('table'),null);
+});
