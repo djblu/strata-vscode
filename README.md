@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.19.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.20.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. On a new host, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -14,6 +14,20 @@ Use **gear → Change connection**, or **Strata: Connect to Server**, to repeat 
 The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. Automatic runtime setup supports Linux and macOS x64/ARM64 hosts and requires Git, tar and access to nodejs.org, GitHub and npm. Native Windows runtime provisioning is not included; Windows VS Code with Remote SSH to Linux is supported. Linux x64 clean installation and a live model response have been verified; macOS/ARM64 have not been exercised on hardware.
 
 Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
+
+## Reuse local profiles across SSH hosts
+
+Install **Strata Connection Profiles** (`strata-profiles-0.1.0.vsix`) once in a **local VS Code window on your PC**. Install **Strata Harness** (`strata-harness-0.1.20.vsix`) in each SSH environment. The companion declares `extensionKind: ui` and `api: none`; the harness is a workspace extension. VS Code routes their commands between extension hosts over its existing connection.
+
+1. Run **Strata: Manage Local Connection Profiles** and add entries such as **Strata — Swift 1.5** and **Strata — DeepSeek**, with each endpoint, exact model ID, context limit and API key.
+2. In an SSH window, reload VS Code, then choose **gear → Change connection → Choose a saved profile on this PC**.
+3. Select the named profile. The SSH host tests the API and model, prepares its runtime and remembers the selection for this workspace. There are no repeated credential prompts.
+
+Profile metadata and keys are kept on your PC, with keys in SecretStorage. Remote connection settings contain only profile metadata, never the key. Credentials are retrieved through VS Code commands when the harness starts; the trusted remote harness receives them and may maintain its own runtime credential files. Requests still originate on the SSH host, which must be able to reach the endpoint. This does not add a local proxy or sync chats between hosts.
+
+Use **gear → Manage local profiles** to edit or delete entries. After editing, restart the harness or select the profile again. If the companion or selected profile is missing, startup reports that explicitly instead of falling back to another server. Existing per-host connections remain supported. Profiles are local to the PC/VS Code profile and are not synced through Settings Sync.
+
+For this private preview, both VSIX packages must be installed manually; neither extension is published in the Marketplace. Cross-host behaviour follows VS Code's supported command routing. Automated tests cover the profile flow, but actual Windows-to-SSH interaction needs verification on the user's PC.
 
 ## Features
 

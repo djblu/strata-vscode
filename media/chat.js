@@ -174,7 +174,7 @@ $('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.
 
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
-for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect'])$(type).onclick=()=>vscode.postMessage({type});
+for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect','profiles'])$(type).onclick=()=>vscode.postMessage({type});
 function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}
 $('add-context').onclick=()=>{if(working)return;const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
 for(const action of ['files','selection','git','plan'])$('add-'+action).onclick=()=>{
