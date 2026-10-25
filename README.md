@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.27.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.28.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -19,7 +19,7 @@ Runtime setup downloads Node 24 with SHA-256 verification against the official c
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.27.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.28.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
@@ -101,4 +101,4 @@ Responses render Markdown pipe tables with headers, inline formatting, column al
 
 Files and folders selected from the + menu appear as removable cards above the input. They remain workspace references that the harness reads on demand. Choose **+ → Images** for local PNG, JPEG or WebP pictures, or paste a screenshot into the message box. Pictures show thumbnails; limits are four images, 5 MB each and 16 MB total. Attachments are kept in the draft when setup or validation fails and cleared when the send is accepted. Draft thumbnails are not saved across reloads; the transcript records sent image names, while the harness receives image data.
 
-Image input requires a vision-capable model served through the supported OpenAI chat API. Enable **Strata: Vision** in extension settings, then restart the harness (or reload VS Code). The setting defaults off because model discovery does not reliably advertise vision capability. It does not add vision to a text-only model. The image pipeline is tested against a local mock API; actual image understanding depends on your model and serving configuration.
+Image input requires a vision-capable model served through the supported OpenAI chat API. **Strata: Vision** is enabled by default. You can disable it for a text-only endpoint; restart the harness (or reload VS Code) after changing it. This setting allows image input but does not add vision to a text-only model. The image pipeline is tested against a local mock API; actual image understanding depends on your model and serving configuration.

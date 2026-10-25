@@ -2,7 +2,7 @@
   "name": "strata-harness",
   "displayName": "Strata Harness",
   "description": "Use the Strata coding harness in a VS Code sidebar.",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "publisher": "djblu",
   "license": "UNLICENSED",
   "private": true,
@@ -126,7 +126,7 @@
         },
         "strata.vision": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "machine",
           "description": "Enable image input only for a vision-capable model/API. Restart the harness after changing this setting."
         }
