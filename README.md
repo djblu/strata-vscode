@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.18.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.19.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. On a new host, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -68,3 +68,5 @@ This is an initial private preview, not a Marketplace release. There is no image
 The + menu inserts context into your draft for review before sending. File/folder references let the harness read relevant contents on demand; Git changes include staged and unstaged diffs, exclude untracked contents, and are limited to 100,000 characters. Compaction shows a shimmering status while running (respects reduced motion), followed by a confirmation in chat when the harness reports success.
 
 The bottom status line shimmers throughout an active turn, including thinking and tool activity, and returns to normal when idle. Reduced-motion settings disable the animation.
+
+Harness installation reports elapsed time and completed npm registry requests every five seconds. It has a five-minute timeout; npm diagnostics are saved under `runtime-v1/harness/install-logs` in extension storage, with the full path shown on failure. Retry **Connect to Strata** after resolving network issues; completed Node downloads are reused.

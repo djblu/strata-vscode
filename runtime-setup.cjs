@@ -32,7 +32,22 @@ async function ensureRuntime(base,overrides={},report=()=>{},{reuseLegacy=true}=
  await git(['fetch','--depth=1','https://github.com/Niko1221/Strata.git',COMMIT]);await git(['checkout','--detach','FETCH_HEAD']);
  report('Installing the pinned coding harness…');const harness=path.join(root,'harness');await fs.mkdir(harness,{recursive:true});
  await fs.writeFile(path.join(harness,'package.json'),JSON.stringify({private:true,dependencies:{'@deepseek-ai/dsh':'0.2.1-alpha.3'}}));
- await exec(result.nodePath,[path.join(nodeDir,'lib/node_modules/npm/bin/npm-cli.js'),'install','--omit=dev','--no-audit','--no-fund'],{cwd:harness,timeout:300000,maxBuffer:2000000,env:{...process.env,PATH:path.join(nodeDir,'bin')+path.delimiter+process.env.PATH}});
+ // Rebuild only this installer-owned dependency tree on retry. The bridge's
+ // compatibility symlink must not be present while npm reconciles dependencies.
+ await fs.rm(path.join(harness,'node_modules'),{recursive:true,force:true});
+ const logs=path.join(harness,'install-logs');await fs.mkdir(logs,{recursive:true});
+ const started=Date.now();let downloads=0;
+ const progress=setInterval(()=>report(`Installing coding harness · ${Math.floor((Date.now()-started)/1000)}s elapsed · ${downloads} registry requests completed (5-minute timeout)`),5000);
+ try{
+  const installation=exec(result.nodePath,[path.join(nodeDir,'lib/node_modules/npm/bin/npm-cli.js'),'install','--omit=dev','--no-audit','--no-fund','--loglevel=http','--logs-dir='+logs,'--fetch-retries=2','--fetch-timeout=30000'],{cwd:harness,timeout:300000,maxBuffer:8000000,env:{...process.env,PATH:path.join(nodeDir,'bin')+path.delimiter+process.env.PATH}});
+  // Count request completions without exposing registry URLs or credentials in the UI.
+  let pending='';installation.child.stderr.on('data',chunk=>{pending+=String(chunk);const lines=pending.split('\n');pending=lines.pop().slice(-4096);downloads+=lines.filter(line=>/npm http (fetch|cache)/.test(line)).length;});
+  await installation;
+ }catch(error){
+  const reason=error.killed?'timed out after five minutes':error.code==='ENOENT'?'could not start Node.js':'failed';
+  throw Error(`Coding harness installation ${reason}. Check the npm logs in ${logs}. Retry Connect to Strata after checking network access to the npm registry.`);
+ }finally{clearInterval(progress);}
+ report('Checking the installed coding harness…');
  const nested=path.join(result.harnessPath,'node_modules');if(!await exists(nested))await fs.symlink('../..',nested,'dir');
  if(!await usable(result))throw Error('Runtime installation is incomplete');
  await fs.writeFile(path.join(root,'ready.json'),JSON.stringify({node:NODE,strata:COMMIT,harness:'0.2.1-alpha.3'}));return result;
