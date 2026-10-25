@@ -117,7 +117,9 @@ function activate(context) {
     view = v; v.webview.options = {enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')]};
     const nonce = randomUUID().replaceAll('-', '');
     const script = v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.js'));
-    v.webview.html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';"><style nonce="${nonce}">body{font:13px var(--vscode-font-family);color:var(--vscode-foreground);padding:10px}#history{white-space:pre-wrap;overflow-wrap:anywhere}.entry,.tool{padding:10px 0;border-bottom:1px solid var(--vscode-panel-border)}.reasoning{opacity:.7}label{font-weight:bold}textarea{box-sizing:border-box;width:100%;min-height:100px;margin-top:12px;background:var(--vscode-input-background);color:var(--vscode-input-foreground)}button,select{margin:5px 4px 5px 0;padding:6px;background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:0}button:disabled{opacity:.5}#status{margin:8px 0;opacity:.8}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><button id="key">API key</button><button id="new">New chat</button><button id="changes">Review changes</button><select id="mode" aria-label="Permissions"><option value="manual">Ask before actions</option><option value="plan">Read only</option></select><div id="status">Ready</div><div id="history"></div><textarea id="prompt" aria-label="Message" placeholder="Ask Strata to work in this folder…"></textarea><button id="send">Send</button><button id="stop" disabled>Stop</button><script nonce="${nonce}" src="${script}"></script></body></html>`;
+    v.webview.html = require('./ui.cjs')({nonce, script,
+      style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
+      source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {post({type:'restore',transcript,busy}); for (const tool of pending.values()) post({type:'tool',tool});}
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
@@ -125,7 +127,7 @@ function activate(context) {
       else if (m.type === 'new') {if (busy) throw Error('Stop the current turn first'); chatId = randomUUID(); transcript = []; pending.clear(); persist(); post({type:'restore',transcript,busy});}
       else if (m.type === 'send') {
         if (busy) return;
-        if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan'].includes(m.mode)) throw Error('Invalid message');
+        if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');
         busy = true; post({type:'busy',value:true});
         try {await start(); add('user',m.text); write({type:'send',chatId,text:m.text,mode:m.mode});}
         catch (e) {busy=false;post({type:'busy',value:false});throw e;}

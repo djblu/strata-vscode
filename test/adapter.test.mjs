@@ -7,7 +7,8 @@ import {spawn} from 'node:child_process';
 import readline from 'node:readline';
 import {validate} from '../protocol.cjs';
 test('unknown modes and forged decisions fail closed',()=>{
- for(const mode of ['bypass','auto',null])assert.throws(()=>validate({type:'send',chatId:'chat',text:'hello',mode}));
+ for(const mode of ['auto','full',null])assert.throws(()=>validate({type:'send',chatId:'chat',text:'hello',mode}));
+ assert.equal(validate({type:'send',chatId:'chat',text:'hello',mode:'bypass'}).mode,'bypass');
  assert.throws(()=>validate({type:'approve',chatId:'chat',callId:'tool',decision:'allow-always'}));
  assert.throws(()=>validate({type:'send',chatId:'../other',text:'hello',mode:'manual'}));
 });
