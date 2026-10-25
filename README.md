@@ -5,7 +5,7 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install on this server
 
 1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.15.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
+2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.16.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
 3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
 4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
 
@@ -13,7 +13,7 @@ The required Node 24 runtime and pinned dsh package have already been installed 
 
 ## Features
 
-- Rounded composer with a + button for selected editor context, a shield permission menu, a model/reasoning settings shortcut and a circular Send/Stop button. Voice input is not implemented.
+- Rounded composer with a + menu for workspace file/folder references, selected editor context, Git diffs and read-only planning, a shield permission menu, a model/reasoning settings shortcut and a circular Send/Stop button. Voice input is not implemented.
 - Bottom-anchored composer with Enter to send, Shift+Enter for a new line and Send/Stop controls. Short conversations sit above the composer and grow upwards; long conversations scroll independently.
 - Fenced code blocks with language labels, syntax highlighting and Copy buttons; inline code and bold text. Formatting and highlighting update during streaming in throttled batches (approximately every 120 ms), with an immediate final update. Only the changing message is rendered; incomplete code fences are supported.
 - Left-aligned, compact reasoning and tool activity rows with icons, descriptive labels and expandable details. Approval requests expand automatically and retain their controls.
@@ -68,3 +68,5 @@ npm run package
 The automated tests cover invalid permission modes, concurrency, rejected approvals, streaming, cancellation, shutdown and 1,000-chunk batched rendering. Live checks passed for a Swift response, resuming the same session across adapter restarts, an approved file write and cancellation of a pending write; the cancelled file was not created. Live smoke checks use an isolated workspace, not production files. Windows webview/Remote SSH UI interaction must still be checked in VS Code; passing adapter tests does not prove the UI.
 
 This is an initial private preview, not a Marketplace release. There is no session browser, image attachment support or custom inline edit-diff UI yet. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
+
+The + menu inserts context into your draft for review before sending. File/folder references let the harness read relevant contents on demand; Git changes include staged and unstaged diffs, exclude untracked contents, and are limited to 100,000 characters. Compaction shows a shimmering status while running (respects reduced motion), followed by a confirmation in chat when the harness reports success.

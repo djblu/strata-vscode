@@ -86,6 +86,7 @@ function entry(role,text,timestamp) {
   const title=reasoning?activitySummary(working?'Thinking…':'Reasoning'):document.createElement('label');if(!reasoning)title.textContent=role;
   const body=document.createElement('div');body.className='content';body.textContent=text;
   box.append(title,body);
+  if(role==='compaction'){const icon=$('compaction').querySelector('svg')?.cloneNode(true);if(icon)box.prepend(icon);$('compaction').hidden=true;}
   if(role==='user'){
     const actions=document.createElement('div');actions.className='message-actions';
     const time=document.createElement('time');
@@ -103,7 +104,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
-  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('permission-control').disabled=value;if(value)closePermissionMenu();$('stop').hidden=!value;$('stop').disabled=!value;
+  working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('permission-control').disabled=value;if(value){closePermissionMenu();closeAddMenu();}$('add-context').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
@@ -117,7 +118,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
-  else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
+  else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
@@ -127,6 +128,8 @@ window.addEventListener('message',({data:m})=>{
     $('context-usage').textContent=known?`${m.used.toLocaleString()} / ${m.max.toLocaleString()} tokens · ${left.toLocaleString()} left (${Math.max(0,Math.round(left/m.max*100))}%)`:'Context usage not yet reported';
     $('context-usage').title='Latest reported context usage. Remaining window is shared by prompts, tools and replies; the harness may compact earlier to reserve space.';
     $('compaction').hidden=!m.compacting;
+    $('compaction').classList.toggle('shimmer',!!m.compacting);
+    $('compaction-text').textContent='Compacting context…';
     $('compact-description').textContent=known?`Compact this chat’s context (${Math.round(m.used/m.max*100)}% full)`:'Compact this chat’s context';
   }
   else if(m.type==='status'){$('status').textContent=m.text;if(m.manualCompaction){manualCompaction=true;$('stop').disabled=true;$('stop').title='Manual compaction is running';}else if(!manualCompaction)$('stop').title='Stop generation';}
@@ -155,7 +158,7 @@ function closePermissionMenu(){ $('permission-menu').hidden=true;$('permission-c
 $('permission-control').onclick=()=>{
   if(working)return;
   if(!$('permission-menu').hidden){closePermissionMenu();return;}
-  $('permission-menu').hidden=false;$('permission-control').setAttribute('aria-expanded','true');$('permission-'+($('mode').value||'manual')).focus();
+  closeAddMenu();$('permission-menu').hidden=false;$('permission-control').setAttribute('aria-expanded','true');$('permission-'+($('mode').value||'manual')).focus();
 };
 for(const choice of ['manual','plan','bypass'])$('permission-'+choice).onclick=()=>{if(working)return;showPermission(choice);vscode.postMessage({type:'permissionMode',mode:choice});closePermissionMenu();$('permission-control').focus();};
 document.addEventListener?.('click',e=>{if(!$('permission-menu').contains(e.target)&&!$('permission-control').contains(e.target))closePermissionMenu();});
@@ -170,5 +173,17 @@ $('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.
 
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
-for(const type of ['new','stop','key','changes','chats','rename','add-context','model-settings'])$(type).onclick=()=>vscode.postMessage({type});
+for(const type of ['new','stop','key','changes','chats','rename','model-settings'])$(type).onclick=()=>vscode.postMessage({type});
+function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}
+$('add-context').onclick=()=>{if(working)return;const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
+for(const action of ['files','selection','git','plan'])$('add-'+action).onclick=()=>{
+  if(working)return;closeAddMenu();
+  if(action==='plan'){showPermission('plan');vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
+  else vscode.postMessage({type:action==='selection'?'add-context':'add-'+action});
+};
+document.addEventListener?.('click',e=>{if(!$('add-menu').contains(e.target)&&!$('add-context').contains(e.target))closeAddMenu();});
+$('add-menu').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();closeAddMenu();$('add-context').focus();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const choices=['files','selection','git','plan'].map(x=>$('add-'+x));const i=choices.indexOf(document.activeElement);choices[e.key==='Home'?0:e.key==='End'?3:(i+(e.key==='ArrowDown'?1:3))%4].focus();}
+});
 vscode.postMessage({type:'loaded'});

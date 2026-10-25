@@ -21,7 +21,7 @@ test('header shows active title and embedded list opens a selected session',asyn
  event({type:'chatMetadata',activeId:'b',chats:[{id:'b',title:'Build app',updatedAt:Date.now()-14*86400000}]});event({type:'page',page:'chat'});
  assert.equal($('chat-title').textContent,'Build app');assert.equal($('composer-footer').hidden,false);assert.equal($('chats').hidden,false);
  event({type:'modelInfo',model:'swift-1.5-q4_k_m',thinking:'Low'});assert.equal($('model-label').textContent,'swift-1.5-q4_k_m · Low');
- $('model-settings').click();assert.equal(sent.at(-1).type,'model-settings');$('add-context').click();assert.equal(sent.at(-1).type,'add-context');
+ $('model-settings').click();assert.equal(sent.at(-1).type,'model-settings');$('add-context').click();assert.equal($('add-menu').hidden,false);$('add-selection').click();assert.equal(sent.at(-1).type,'add-context');
  $('mode').value='bypass';$('mode').dispatchEvent(new dom.window.Event('change'));assert.equal($('permission-control').title,'Permissions: Full Access');assert.equal($('permission-note').hidden,false);
  assert.equal(sent.at(-1).type,'permissionMode');assert.equal(sent.at(-1).mode,'bypass');
  event({type:'restore',transcript:[],busy:false,mode:'bypass'});assert.equal($('mode').value,'bypass');assert.equal($('permission-control').dataset.mode,'bypass');

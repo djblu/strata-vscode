@@ -18,6 +18,7 @@ function activate(context) {
   function contextFrame(f) {const next=updateContext(contextInfo,f);if(next.used===contextInfo.used&&next.max===contextInfo.max&&next.compacting===contextInfo.compacting)return;contextInfo=next;post({type:'contextInfo',...contextInfo});persist();}
   let transcript = saved?.transcript || context.workspaceState.get('transcript') || [];
   let timer;
+  let manualCompaction=false;
   const pending = new Map();
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
@@ -61,10 +62,13 @@ function activate(context) {
   function receive(m) {
     if (m.type === 'ready') return;
     if (m.type === 'error') { contextFrame(m); add('error', m.text); return; }
-    if (m.type === 'idle') { contextFrame(m); busy = false; post({type: 'busy', value: false}); persist(); return; }
+    if (m.type === 'idle') { manualCompaction=false;contextFrame(m); busy = false; post({type: 'busy', value: false}); persist(); return; }
     if (m.type !== 'frame' || m.chatId !== chatId) return;
     const f = m.frame;
+    if(f.type==='status'&&f.manual===true)manualCompaction=true;
     contextFrame(f);
+    if(f.noteReason==='compacted'){add('compaction',manualCompaction?'Context compacted':'Context automatically compacted');return;}
+    if(['done','error'].includes(f.type))manualCompaction=false;
     if (f.type === 'delta' || f.type === 'reasoning') {
       const role = f.type === 'delta' ? 'assistant' : 'reasoning';
       const text = String(f.text || '');
@@ -163,6 +167,23 @@ function activate(context) {
         catch {post({type:'copied',id:m.id,error:true});}
       }
       else if (m.type === 'add-context') await vscode.commands.executeCommand('strata.addSelection');
+      else if (m.type === 'add-files' || m.type === 'add-git') {
+        if(busy)throw Error('Wait for the current turn before adding context');
+        const root=vscode.workspace.workspaceFolders?.[0]?.uri;
+        if(!root||root.scheme!=='file')throw Error('Open a filesystem workspace first');
+        const originalChat=chatId;
+        const {workspaceReferences,gitChanges}=require('./context-attachments.cjs');
+        let text;
+        if(m.type==='add-files'){
+          const kind=await vscode.window.showQuickPick(['Files','Folders'],{title:'Add workspace context'});if(!kind)return;
+          const selected=await vscode.window.showOpenDialog({defaultUri:root,canSelectFiles:kind==='Files',canSelectFolders:kind==='Folders',canSelectMany:true,openLabel:'Add context'});
+          if(!selected?.length)return;
+          if(selected.some(uri=>uri.scheme!=='file'))throw Error('Choose filesystem paths');
+          text=await workspaceReferences(root.fsPath,selected.map(uri=>uri.fsPath));
+        }else text=await gitChanges(root.fsPath);
+        if(chatId!==originalChat||busy)throw Error('Chat changed while adding context; add it again to the intended draft');
+        post({type:'selection',text});
+      }
       else if (m.type === 'model-settings') await vscode.commands.executeCommand('workbench.action.openSettings','@ext:djblu.strata-harness');
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
