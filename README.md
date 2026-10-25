@@ -1,11 +1,11 @@
 # Strata Harness for VS Code
 
-Private preview extension for using Strata's coding harness from a VS Code sidebar. The extension and coding harness run beside your workspace, locally or on a Remote SSH host; model inference stays on your configured API server.
+VS Code extension for using Strata's coding harness from a VS Code sidebar. The extension and coding harness run beside your workspace, locally or on a Remote SSH host; model inference stays on your configured API server.
 
 ## Install and connect
 
-1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.28.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+1. Open your project folder locally or connect with VS Code Remote SSH.
+2. Download `strata-harness-0.1.0.vsix` from [GitHub Releases](https://github.com/djblu/strata-vscode/releases/latest) and use **Extensions: Install from VSIX…** in the local or SSH window where you want to work. This extension is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -15,11 +15,11 @@ The model API can be on another machine. Files and commands belong to the machin
 
 Runtime packages have their own version and remain in extension global storage across extension updates. Existing working source installations are reused. Other supported x64/ARM64 platforms use the source installer, requiring Git, tar (or Windows PowerShell), and access to nodejs.org, GitHub and npm. A failed or corrupt prebuilt download reports an error and can be retried; it never silently runs an unverified package. Windows installations automatically disable optional subagent model selection; ordinary subagents retain the parent model.
 
-Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
+The source-install fallback downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.28.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.0.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
@@ -27,7 +27,7 @@ Use **gear → Change connection** to configure the current connection. **Gear �
 
 Earlier per-host connection settings migrate into SecretStorage if there is no saved default. Chats remain per workspace. Credentials are available to the trusted remote harness at runtime, but are not saved in its connection settings or sent to the webview. Upstream harness runtime credential storage is separate. SecretStorage does not provide cross-PC Settings Sync.
 
-This private preview is not published on Marketplace. VS Code provides the remote installation button; Strata does not implement its own installer UI. Automated tests cover shared-secret connection reuse and failed writes. A real Windows-to-SSH installation and credential reuse should be verified on the user's PC.
+This extension is not published on Marketplace. VS Code provides the remote installation button; Strata does not implement its own installer UI. Automated tests cover shared-secret connection reuse and failed writes. A real Windows-to-SSH installation and credential reuse should be verified on the user's PC.
 
 ## Features
 
@@ -102,3 +102,7 @@ Responses render Markdown pipe tables with headers, inline formatting, column al
 Files and folders selected from the + menu appear as removable cards above the input. They remain workspace references that the harness reads on demand. Choose **+ → Images** for local PNG, JPEG or WebP pictures, or paste a screenshot into the message box. Pictures show thumbnails; limits are four images, 5 MB each and 16 MB total. Attachments are kept in the draft when setup or validation fails and cleared when the send is accepted. Draft thumbnails are not saved across reloads; the transcript records sent image names, while the harness receives image data.
 
 Image input requires a vision-capable model served through the supported OpenAI chat API. **Strata: Vision** is enabled by default. You can disable it for a text-only endpoint; restart the harness (or reload VS Code) after changing it. This setting allows image input but does not add vision to a text-only model. The image pipeline is tested against a local mock API; actual image understanding depends on your model and serving configuration.
+
+## Initial public release
+
+v0.1.0 contains the features developed and tested through the private v0.1.28 preview. Development history is retained. Existing preview users must manually install the v0.1.0 VSIX because VS Code does not automatically downgrade extensions. Publisher and extension IDs are unchanged, so saved connections and chat storage remain associated with the same extension.
