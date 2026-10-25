@@ -1,6 +1,6 @@
 # Integration investigation
 
-Investigated 2026-10-25. No working extension or live harness integration has been validated yet.
+Investigated and implemented 2026-10-25. The adapter has completed a live streamed response through the Strata bridge with Swift 1.5 Q4. See README for current preview features and remaining UI validation.
 
 ## Findings
 
@@ -16,13 +16,13 @@ Strata's Desktop host has an implemented bridge to the pinned DeepSeek Harness. 
 
 The bridge exposes NDJSON chat events, session persistence, model routes, permission modes, context management and cancellation. Its host routes include `/api/chat/stream`, `/api/chat/approval`, `/api/chat/stop`, `/api/agent/status` and `/api/agent/pending`.
 
-## Proposed architecture
+## Architecture
 
 VS Code webview -> workspace extension host -> private local adapter -> Strata harness bridge -> model API.
 
 Use a workspace extension for Remote SSH. Reuse the upstream harness behaviour through a version-pinned adapter; check upstream licensing and retain required notices when incorporating source. Do not mistake the inference API for the agent API.
 
-## Implementation gates
+## Integration checklist
 
 1. Install a compatible Node runtime and the pinned harness in an isolated development directory.
 2. Prove streaming, durable session resume, cancellation and approval handling against an isolated fixture workspace.
