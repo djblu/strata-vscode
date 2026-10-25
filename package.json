@@ -1,0 +1,142 @@
+{
+  "name": "strata-harness",
+  "displayName": "Strata Harness",
+  "description": "Use the Strata coding harness in a VS Code sidebar.",
+  "version": "0.1.0",
+  "publisher": "djblu",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Machine Learning"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./extension.cjs",
+  "activationEvents": [
+    "onView:strata.chat"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/djblu/strata-vscode.git"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": false
+  },
+  "scripts": {
+    "test": "node --test",
+    "package": "vsce package --allow-missing-repository",
+    "build": "esbuild src/code-blocks.cjs --bundle --minify --format=iife --global-name=CodeBlocks --outfile=media/code-blocks.js",
+    "vscode:prepublish": "npm run build"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "strata.setApiKey",
+        "title": "Strata: Set API Key"
+      },
+      {
+        "command": "strata.addSelection",
+        "title": "Strata: Add Editor Selection"
+      },
+      {
+        "command": "strata.restart",
+        "title": "Strata: Restart Harness"
+      },
+      {
+        "command": "strata.connect",
+        "title": "Strata: Connect to Server"
+      },
+      {
+        "command": "strata.switchConnection",
+        "title": "Strata: Switch Saved Connection"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "strata",
+          "title": "Strata",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "strata": [
+        {
+          "type": "webview",
+          "id": "strata.chat",
+          "name": "Strata Harness"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Strata Harness",
+      "properties": {
+        "strata.sourcePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
+        },
+        "strata.nodePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
+        },
+        "strata.harnessPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
+        },
+        "strata.baseURL": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Inference API URL, reached from the extension host."
+        },
+        "strata.model": {
+          "type": "string",
+          "default": "",
+          "scope": "machine"
+        },
+        "strata.contextWindow": {
+          "type": "number",
+          "default": 262144,
+          "minimum": 4096,
+          "scope": "machine"
+        },
+        "strata.thinking": {
+          "type": "string",
+          "enum": [
+            "Off",
+            "Low",
+            "Medium",
+            "High"
+          ],
+          "default": "Low"
+        },
+        "strata.vision": {
+          "type": "boolean",
+          "default": true,
+          "scope": "machine",
+          "description": "Enable image input only for a vision-capable model/API. Restart the harness after changing this setting."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.28.2",
+    "highlight.js": "^11.12.0",
+    "jsdom": "^30.1.3"
+  }
+}

@@ -1,0 +1,11 @@
+.git/**
+node_modules/**
+test/**
+docs/**
+package-lock.json
+*.vsix
+src/**
+scripts/**
+.github/**
+dist/**
+.runtime/**

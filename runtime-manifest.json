@@ -1,0 +1,21 @@
+{
+  "version": "runtime-2026-10-25.1",
+  "node": "24.22.1",
+  "assets": {
+    "darwin-arm64": {
+      "url": "https://github.com/djblu/strata-runtimes/releases/download/runtime-2026-10-25.1/strata-runtime-darwin-arm64.tar.gz",
+      "sha256": "d028f7b18a1e335d66d8e415b9881fd5f15847f210c3d5e5163fe8432d3bb104",
+      "bytes": 234378304
+    },
+    "linux-x64": {
+      "url": "https://github.com/djblu/strata-runtimes/releases/download/runtime-2026-10-25.1/strata-runtime-linux-x64.tar.gz",
+      "sha256": "3cc407d5ec68b1cf45ed8755a476e0e06cda40ab1bebe4832ed74d88e7d5d6cf",
+      "bytes": 224832969
+    },
+    "win32-x64": {
+      "url": "https://github.com/djblu/strata-runtimes/releases/download/runtime-2026-10-25.1/strata-runtime-win32-x64.tar.gz",
+      "sha256": "7d63537c5e3316720fa64c89019877078c8faae5864e5f1f76fde9ea8cb036fd",
+      "bytes": 218410127
+    }
+  }
+}
