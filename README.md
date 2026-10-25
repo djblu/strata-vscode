@@ -5,19 +5,19 @@ Private preview extension for using Strata's coding harness from a VS Code sideb
 ## Install and connect
 
 1. Connect with VS Code Remote SSH and open your project folder.
-2. Install `strata-harness-0.1.21.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+2. Install `strata-harness-0.1.22.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
 Use **gear → Change connection**, or **Strata: Connect to Server**, to repeat setup. Keys are stored in SecretStorage and never shown in chat. Cancelling or failing setup preserves the previous saved connection. Existing sessions and this server's existing connection migrate without re-entering the key. Model discovery verifies access to the models endpoint; inference errors are still reported when a turn runs.
 
-The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. Automatic runtime setup supports Linux and macOS x64/ARM64 hosts and requires Git, tar and access to nodejs.org, GitHub and npm. Native Windows runtime provisioning is not included; Windows VS Code with Remote SSH to Linux is supported. Linux x64 clean installation and a live model response have been verified; macOS/ARM64 have not been exercised on hardware.
+The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. Automatic runtime setup supports Windows, Linux and macOS x64/ARM64 hosts. Windows requires Git for Windows on PATH and Windows PowerShell; Unix hosts require Git and tar. All require access to nodejs.org, GitHub and npm. Windows uses the verified Node ZIP, PowerShell extraction and a directory junction for harness dependencies. Linux x64 clean installation and a live model response have been verified; Windows and macOS/ARM64 have automated path tests but have not been exercised on hardware here.
 
 Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.21.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.22.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
