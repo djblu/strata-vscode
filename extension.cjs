@@ -20,6 +20,8 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
   const post = m => view?.webview.postMessage(m);
+  function modelInfo(){const cfg=vscode.workspace.getConfiguration('strata');post({type:'modelInfo',model:cfg.get('model'),thinking:cfg.get('thinking')});}
+  context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e=>{if(e.affectsConfiguration('strata'))modelInfo();}));
   function chatMetadata() {post({type:'chatMetadata',activeId:chatId,chats:store.list()});}
   async function saveChat() {await store.save({id:chatId,transcript,contextInfo});chatMetadata();}
   function persist() {
@@ -147,7 +149,7 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
         await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -157,6 +159,8 @@ function activate(context) {
         try {await vscode.env.clipboard.writeText(m.text); post({type:'copied',id:m.id});}
         catch {post({type:'copied',id:m.id,error:true});}
       }
+      else if (m.type === 'add-context') await vscode.commands.executeCommand('strata.addSelection');
+      else if (m.type === 'model-settings') await vscode.commands.executeCommand('workbench.action.openSettings','@ext:djblu.strata-harness');
       else if (m.type === 'changes') await vscode.commands.executeCommand('workbench.view.scm');
       else if (m.type === 'key') await vscode.commands.executeCommand('strata.setApiKey');
       else if (m.type === 'new') await switchChat();

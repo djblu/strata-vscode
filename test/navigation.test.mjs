@@ -20,5 +20,8 @@ test('header shows active title and embedded list opens a selected session',asyn
  assert.equal($('chat-list').children.length,1);$('chat-list').children[0].click();assert.equal(sent.at(-1).id,'b');
  event({type:'chatMetadata',activeId:'b',chats:[{id:'b',title:'Build app',updatedAt:Date.now()-14*86400000}]});event({type:'page',page:'chat'});
  assert.equal($('chat-title').textContent,'Build app');assert.equal($('composer-footer').hidden,false);assert.equal($('chats').hidden,false);
+ event({type:'modelInfo',model:'swift-1.5-q4_k_m',thinking:'Low'});assert.equal($('model-label').textContent,'swift-1.5-q4_k_m · Low');
+ $('model-settings').click();assert.equal(sent.at(-1).type,'model-settings');$('add-context').click();assert.equal(sent.at(-1).type,'add-context');
+ $('mode').value='bypass';$('mode').dispatchEvent(new dom.window.Event('change'));assert.equal($('permission-control').title,'Permissions: Full control');assert.equal($('permission-note').hidden,false);
  $('new').click();assert.equal(sent.at(-1).type,'new');dom.window.close();
 });

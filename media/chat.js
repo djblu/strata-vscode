@@ -97,6 +97,7 @@ function busy(value) {
 window.addEventListener('message',({data:m})=>{
   if(m.type!=='chunk')flush();
   if(m.type==='copied'){const button=copies.get(m.id);if(button){button.disabled=false;button.textContent=m.error?'Try again':'Copied!';copies.delete(m.id);setTimeout(()=>{button.textContent=button.dataset.copyLabel||'Copy';},1800);}}
+  else if(m.type==='modelInfo'){const text=[m.model,m.thinking].filter(Boolean).join(' · ');$('model-label').textContent=text;$('model-settings').title=text+' — open model and reasoning settings';}
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='restore'){endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
@@ -123,8 +124,8 @@ window.addEventListener('message',({data:m})=>{
     scroll();
   }
 });
-$('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';});
+$('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';$('permission-control').title='Permissions: '+({manual:'Ask before actions',plan:'Read only',bypass:'Full control'}[$('mode').value]);});
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working)$('send').click();}});
-for(const type of ['new','stop','key','changes','chats','rename'])$(type).onclick=()=>vscode.postMessage({type});
+for(const type of ['new','stop','key','changes','chats','rename','add-context','model-settings'])$(type).onclick=()=>vscode.postMessage({type});
 vscode.postMessage({type:'loaded'});
