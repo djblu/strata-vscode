@@ -2,7 +2,7 @@
   "name": "strata-harness",
   "displayName": "Strata Harness",
   "description": "Use the Strata coding harness in a VS Code sidebar.",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "publisher": "djblu",
   "license": "UNLICENSED",
   "private": true,
@@ -48,6 +48,10 @@
       {
         "command": "strata.restart",
         "title": "Strata: Restart Harness"
+      },
+      {
+        "command": "strata.connect",
+        "title": "Strata: Connect to Server"
       }
     ],
     "viewsContainers": {
@@ -73,31 +77,31 @@
       "properties": {
         "strata.sourcePath": {
           "type": "string",
-          "default": "/mnt/ai-models/strata-q8/source",
+          "default": "",
           "scope": "machine",
-          "description": "Strata v0.2.4 source checkout on the extension host."
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
         },
         "strata.nodePath": {
           "type": "string",
-          "default": "/home/djblu/.local/share/strata-vscode/node-v24.22.1-linux-x64/bin/node",
+          "default": "",
           "scope": "machine",
-          "description": "Node.js 24 executable on the extension host."
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
         },
         "strata.harnessPath": {
           "type": "string",
-          "default": "/home/djblu/.local/share/strata-vscode/harness/node_modules/@deepseek-ai/dsh",
+          "default": "",
           "scope": "machine",
-          "description": "Installed dsh 0.2.1-alpha.3 package directory."
+          "description": "Optional runtime override. Leave all three runtime paths blank for automatic setup."
         },
         "strata.baseURL": {
           "type": "string",
-          "default": "http://10.70.70.24:8081/v1",
+          "default": "",
           "scope": "machine",
           "description": "Inference API URL, reached from the extension host."
         },
         "strata.model": {
           "type": "string",
-          "default": "swift-1.5-q4_k_m",
+          "default": "",
           "scope": "machine"
         },
         "strata.contextWindow": {

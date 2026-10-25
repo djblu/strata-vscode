@@ -2,14 +2,18 @@
 
 Private preview extension for using Strata's coding harness from a VS Code sidebar. Windows VS Code connects to the Linux server through Remote SSH; the extension and harness run on that server.
 
-## Install on this server
+## Install and connect
 
-1. In Windows VS Code, connect to the server using Remote SSH and open one project folder.
-2. Run **Extensions: Install from VSIX…**, selecting `strata-harness-0.1.17.vsix` from this repository. Ensure the extension is installed in the **SSH** extension host. If the file picker is local, download the VSIX first.
-3. Open **Strata Harness** from the activity bar. Click **API key**, or run **Strata: Set API Key**. Paste your inference server key. It is stored in VS Code SecretStorage.
-4. Send a message. The default is the currently running Swift 1.5 Q4 server at `http://10.70.70.24:8081/v1`.
+1. Connect with VS Code Remote SSH and open your project folder.
+2. Install `strata-harness-0.1.18.vsix` into the **SSH extension host**, using **Extensions: Install from VSIX…**. This private preview is not yet published in the Marketplace.
+3. Open Strata Harness. On a new host, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
+4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
-The required Node 24 runtime and pinned dsh package have already been installed under `/home/djblu/.local/share/strata-vscode/`. Strata's source checkout is reused without modification. The extension does not start or stop your inference server.
+Use **gear → Change connection**, or **Strata: Connect to Server**, to repeat setup. Keys are stored in SecretStorage and never shown in chat. Cancelling or failing setup preserves the previous saved connection. Existing sessions and this server's existing connection migrate without re-entering the key. Model discovery verifies access to the models endpoint; inference errors are still reported when a turn runs.
+
+The model API can be on another machine. Files and commands belong to the machine hosting the extension and your workspace. Automatic runtime setup supports Linux and macOS x64/ARM64 hosts and requires Git, tar and access to nodejs.org, GitHub and npm. Native Windows runtime provisioning is not included; Windows VS Code with Remote SSH to Linux is supported. Linux x64 clean installation and a live model response have been verified; macOS/ARM64 have not been exercised on hardware.
+
+Runtime setup downloads Node 24 with SHA-256 verification against the official checksum list, fetches the exact Strata source commit and installs the pinned dsh package in extension storage. It requires no root access and does not start or stop the inference server. The existing installation on the original server is reused.
 
 ## Features
 
@@ -35,21 +39,13 @@ The required Node 24 runtime and pinned dsh package have already been installed 
 
 ## Configuration
 
-Search Settings for `Strata`. Machine settings specify the Strata source checkout, Node executable, dsh package, API URL, model ID and context window. Defaults match this server. Thinking defaults to Low. Run **Strata: Restart Harness** after changing connection settings, thinking or the API key; wait for shutdown before sending again.
+Use **Change connection** for the address, API key, model and context window. Connection details are saved per extension host, outside project files. Thinking remains configurable in Settings. Restart the harness after changing thinking. Changing connection stops the old idle harness automatically; active turns must finish first.
 
-The URL is reached from the Linux extension host. For another model, use its actual server address and model ID. The configured context window must agree with the inference server. This preview deliberately sends text only.
+Advanced users can override sourcePath, nodePath and harnessPath in remote settings. Set all three together, or leave all three blank for automatic setup. Legacy API/model settings are read during migration; the connection wizard manages subsequent changes. The configured context window must agree with the inference server. This preview sends text only.
 
 ## Runtime compatibility
 
 Tested with Strata source v0.2.4 (`96ca4383`), Node v24.22.1 and `@deepseek-ai/dsh@0.2.1-alpha.3`. The source bridge is an internal API, so upstream upgrades need integration testing. `strata code` is not used: the inspected terminal version has only a placeholder for that command.
-
-For a new Linux machine, install Node 24, clone the matching Strata source, and install dsh:
-
-```sh
-npm install --prefix "$HOME/.local/share/strata-vscode/harness" --save-exact @deepseek-ai/dsh@0.2.1-alpha.3
-```
-
-The bridge checks for a `node_modules` directory inside the dsh package. When npm hoists dependencies, create a symlink there pointing to `../..` (the enclosing `node_modules`) if that directory is absent. Configure the three runtime paths in VS Code's remote settings.
 
 ## Data and permissions
 
@@ -67,7 +63,7 @@ npm run package
 
 The automated tests cover invalid permission modes, concurrency, rejected approvals, streaming, cancellation, shutdown and 1,000-chunk batched rendering. Live checks passed for a Swift response, resuming the same session across adapter restarts, an approved file write and cancellation of a pending write; the cancelled file was not created. Live smoke checks use an isolated workspace, not production files. Windows webview/Remote SSH UI interaction must still be checked in VS Code; passing adapter tests does not prove the UI.
 
-This is an initial private preview, not a Marketplace release. There is no session browser, image attachment support or custom inline edit-diff UI yet. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
+This is an initial private preview, not a Marketplace release. There is no image attachment support or custom inline edit-diff UI yet. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
 
 The + menu inserts context into your draft for review before sending. File/folder references let the harness read relevant contents on demand; Git changes include staged and unstaged diffs, exclude untracked contents, and are limited to 100,000 characters. Compaction shows a shimmering status while running (respects reduced motion), followed by a confirmation in chat when the harness reports success.
 

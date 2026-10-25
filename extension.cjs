@@ -23,7 +23,51 @@ function activate(context) {
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
   const post = m => view?.webview.postMessage(m);
-  function modelInfo(){const cfg=vscode.workspace.getConfiguration('strata');post({type:'modelInfo',model:cfg.get('model'),thinking:cfg.get('thinking')});}
+  function modelInfo(){const cfg=vscode.workspace.getConfiguration('strata');post({type:'modelInfo',model:context.globalState.get('connection')?.model||cfg.get('model')||'Connect to Strata',thinking:cfg.get('thinking')});}
+  let connecting=false,offeredSetup=false;
+  function connectionInfo(){const c=context.globalState.get('connection');post({type:'connectionInfo',text:c?`${c.model} · ${c.baseURL}`:'Not connected',connected:!!c});}
+  async function getConnection(){
+    let c=context.globalState.get('connection');if(c)return c;
+    const cfg=vscode.workspace.getConfiguration('strata');
+    const {usable,legacy}=require('./runtime-setup.cjs');
+    if(await context.secrets.get('strata.apiKey')&&await usable(legacy)){
+      c={baseURL:cfg.get('baseURL')||'http://10.70.70.24:8081/v1',model:cfg.get('model')||'swift-1.5-q4_k_m',contextWindow:cfg.get('contextWindow')||262144};
+      await context.globalState.update('connection',c);
+    }
+    return c;
+  }
+  async function runtime(){
+    const cfg=vscode.workspace.getConfiguration('strata');
+    return vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Strata runtime',cancellable:false},async progress=>{
+      const overrides=Object.fromEntries(['sourcePath','nodePath','harnessPath'].map(k=>[k,cfg.get(k)||'']));
+      return require('./runtime-setup.cjs').ensureRuntime(context.globalStorageUri.fsPath,overrides,message=>progress.report({message}));
+    });
+  }
+  async function connect(){
+    if(connecting)return;if(busy)throw Error('Finish or stop the current turn before changing connection');
+    if(!vscode.workspace.isTrusted)throw Error('Trust the workspace before setting up Strata');
+    connecting=true;
+    try{
+      const {normalizeAddress,listModels}=require('./connection.cjs');const old=await getConnection();
+      const address=await vscode.window.showInputBox({title:'Connect to Strata · 1 of 4',prompt:'Model API address, reached from this extension host (include the port)',placeHolder:'http://10.70.70.24:8081',value:old?.baseURL||'',ignoreFocusOut:true,validateInput:value=>{try{normalizeAddress(value);}catch(e){return e.message;}}});if(address===undefined)return;
+      const baseURL=normalizeAddress(address);
+      const existing=old?.baseURL===baseURL?await context.secrets.get('strata.apiKey'):undefined;
+      const entered=await vscode.window.showInputBox({title:'Connect to Strata · 2 of 4',prompt:existing?'API key (leave blank to keep the saved key)':'API key (leave blank only for a server without authentication)',password:true,ignoreFocusOut:true});if(entered===undefined)return;
+      const key=entered.trim()||existing||'';
+      const models=await vscode.window.withProgress({location:vscode.ProgressLocation.Notification,title:'Testing Strata connection'},()=>listModels(baseURL,key));
+      const chosen=await vscode.window.showQuickPick(models.map(m=>({label:m.id,description:m.id===old?.model?'Current model':undefined})),{title:'Connect to Strata · 3 of 4',placeHolder:'Select a model'});if(!chosen)return;
+      const limit=await vscode.window.showInputBox({title:'Connect to Strata · 4 of 4',prompt:'Context window configured on the inference server (tokens)',value:String(old?.contextWindow||32768),ignoreFocusOut:true,validateInput:value=>!/^\d+$/.test(value)||Number(value)<4096||Number(value)>2097152?'Enter a whole number from 4096 to 2097152':undefined});if(limit===undefined)return;
+      await runtime();
+      // Finish the previous idle process before committing a new route.
+      if(child){const p=child;await shutdown();await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('Previous harness is still stopping. Try connecting again.')),30000);p.once('exit',()=>{clearTimeout(t);resolve();});if(p.exitCode!==null){clearTimeout(t);resolve();}});}
+      const connection={baseURL,model:chosen.label,contextWindow:Number(limit)};
+      const previousKey=await context.secrets.get('strata.apiKey');
+      await context.secrets.store('strata.apiKey',key);
+      try{await context.globalState.update('connection',connection);}catch(e){if(previousKey===undefined)await context.secrets.delete('strata.apiKey');else await context.secrets.store('strata.apiKey',previousKey);throw e;}
+      connectionInfo();modelInfo();vscode.window.showInformationMessage('Connected to Strata. Your next message will use '+chosen.label+'.');
+    }finally{connecting=false;}
+  }
+
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e=>{if(e.affectsConfiguration('strata'))modelInfo();}));
   function chatMetadata() {post({type:'chatMetadata',activeId:chatId,chats:store.list()});}
   async function saveChat() {await store.save({id:chatId,transcript,contextInfo,mode:permissionMode});chatMetadata();}
@@ -99,6 +143,8 @@ function activate(context) {
     if (folders?.length !== 1 || folders[0].uri.scheme !== 'file') throw Error('Open one filesystem folder (Remote SSH is supported)');
     const cfg = vscode.workspace.getConfiguration('strata');
     const config = Object.fromEntries(['sourcePath','nodePath','harnessPath','baseURL','model','contextWindow','thinking'].map(k => [k, cfg.get(k)]));
+    const connection=await getConnection();if(!connection)throw Error('Use Connect to Strata in the settings menu first');
+    Object.assign(config,connection,await runtime());
     config.workspace = folders[0].uri.fsPath;
     config.apiKey = await context.secrets.get('strata.apiKey') || '';
     config.dataDir = path.join(context.globalStorageUri.fsPath, createHash('sha256').update(config.workspace).digest('hex').slice(0, 24));
@@ -134,6 +180,7 @@ function activate(context) {
     timer=undefined;await saveChat();
   };
   const safe = fn => async (...args) => {try {await fn(...args);} catch(e) {vscode.window.showErrorMessage(`Strata: ${e.message}`);}};
+  context.subscriptions.push(vscode.commands.registerCommand('strata.connect',safe(connect)));
   context.subscriptions.push(vscode.commands.registerCommand('strata.setApiKey', safe(async () => {
     const key = await vscode.window.showInputBox({title: 'Strata API key', password: true, ignoreFocusOut: true, prompt: 'Stored in VS Code SecretStorage. Restart the harness after changing this.'});
     if (key !== undefined) await context.secrets.store('strata.apiKey', key.trim());
@@ -156,7 +203,8 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!context.globalState.get('connection')){offeredSetup=true;await connect();}}
+      else if (m.type === 'connect') await connect();
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
         await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -198,6 +246,7 @@ function activate(context) {
       }
       else if (m.type === 'send') {
         if (busy) return;
+        if(connecting)throw Error('Finish connection setup before sending a message');
         if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');
         permissionMode=m.mode;
         busy = true; post({type:'busy',value:true});

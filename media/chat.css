@@ -32,3 +32,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 
 /* Keep the status shimmer sized to its text, and use one waiting animation. */
 #status{width:fit-content;max-width:100%}.working #status:before{animation:none}
+
+#connection-status{font-size:11px;color:var(--vscode-descriptionForeground);padding:6px 9px;overflow-wrap:anywhere;max-width:320px}
