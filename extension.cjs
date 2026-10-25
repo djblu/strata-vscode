@@ -119,6 +119,27 @@ function activate(context) {
     if(busy)throw Error('Stop the current turn before switching chats');
     await saveChat();post({type:'page',page:'chats'});
   }
+  async function deleteChat(id){
+    if(busy)throw Error('Stop the current turn before deleting chats');
+    const item=store.list().find(c=>c.id===id);if(!item)throw Error('Chat not found');
+    const answer=await vscode.window.showWarningMessage(`Delete “${item.title}” from saved chats?`,{modal:true,detail:'This removes the saved chat and transcript from this workspace. Project files are not deleted. Harness session logs may remain on the host.'},'Delete');
+    if(answer!=='Delete')return;
+    if(busy)throw Error('Stop the current turn before deleting chats');
+    busy=true;post({type:'busy',value:true});
+    try{
+      const active=id===chatId;
+      if(active){clearTimeout(timer);timer=undefined;}
+      await store.remove(id);
+      if(active){
+        chatId=randomUUID();transcript=[];contextInfo={compacting:false};permissionMode='manual';pending.clear();
+        await context.workspaceState.update('activeChat',chatId);
+        // Remove legacy migration inputs so deleted transcripts cannot return after reload.
+        for(const key of ['chatId','transcript','contextInfo'])await context.workspaceState.update(key,undefined);
+        post({type:'restore',transcript,busy:false,mode:permissionMode});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});
+      }
+      chatMetadata();post({type:'page',page:'chats'});
+    }finally{busy=false;post({type:'busy',value:false});}
+  }
   async function renameChat() {
     if(busy)throw Error('Wait for the current turn to finish before renaming');
     await saveChat();const id=chatId;
@@ -272,6 +293,7 @@ function activate(context) {
       else if (m.type === 'new') await switchChat();
       else if (m.type === 'chats') await chooseChat();
       else if (m.type === 'openChat') {if(typeof m.id!=='string'||!store.list().some(c=>c.id===m.id))throw Error('Chat not found');await switchChat(m.id);}
+      else if (m.type === 'deleteChat') {if(typeof m.id!=='string')throw Error('Invalid chat');await deleteChat(m.id);}
       else if (m.type === 'rename') await renameChat();
       else if (m.type === 'permissionMode') {
         if(!validMode(m.mode))throw Error('Invalid permission mode');

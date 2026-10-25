@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 — 2026-10-25
+
+- Delete saved chats from the chat list with confirmation.
+- Clear the active transcript on deletion and prevent delayed saves from restoring deleted chats.
+
 ## 0.1.0 — 2026-10-25
 
 Initial public release, based on the private 0.1.28 preview.

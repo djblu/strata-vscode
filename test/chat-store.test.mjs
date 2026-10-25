@@ -28,3 +28,9 @@ test('permission choices persist per conversation',async()=>{
  await store.save({id:'a',mode:'bypass',transcript:[],contextInfo:{}});await store.save({id:'b',mode:'manual',transcript:[],contextInfo:{}});
  const restored=new ChatStore(state);assert.equal(restored.load('a').mode,'bypass');assert.equal(restored.load('b').mode,'manual');
 });
+test('deleting a chat removes its transcript, preserves others and ignores delayed saves',async()=>{
+ const state=memory(),store=new ChatStore(state),a={id:'a',transcript:[{role:'user',text:'Delete me'}]};
+ await store.save({id:'b',transcript:[{role:'user',text:'Keep me'}]});await store.save(a);
+ const pending=store.save(a),remove=store.remove('a'),late=store.save(a);await Promise.all([pending,remove,late]);
+ const reopened=new ChatStore(state);assert.deepEqual(reopened.list().map(x=>x.id),['b']);assert.equal(reopened.load('a'),undefined);assert.equal(state.get('activeChat'),undefined);assert.equal(reopened.load('b').transcript[0].text,'Keep me');
+});

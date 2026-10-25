@@ -5,7 +5,7 @@ VS Code extension for using Strata's coding harness from a VS Code sidebar. The 
 ## Install and connect
 
 1. Open your project folder locally or connect with VS Code Remote SSH.
-2. Download `strata-harness-0.1.0.vsix` from [GitHub Releases](https://github.com/djblu/strata-vscode/releases/latest) and use **Extensions: Install from VSIX…** in the local or SSH window where you want to work. This extension is not yet published in the Marketplace.
+2. Download `strata-harness-0.1.1.vsix` from [GitHub Releases](https://github.com/djblu/strata-vscode/releases/latest) and use **Extensions: Install from VSIX…** in the local or SSH window where you want to work. This extension is not yet published in the Marketplace.
 3. Open Strata Harness. If no saved connection exists, **Connect to Strata** asks for the model API address (including port), API key, model and the context window configured on the server.
 4. Setup checks `/v1/models` from the extension host and installs the pinned runtime if needed. Send your first message after setup completes.
 
@@ -19,7 +19,7 @@ The source-install fallback downloads Node 24 with SHA-256 verification against 
 
 ## One extension across SSH hosts
 
-Only **Strata Harness** is needed. Install `strata-harness-0.1.0.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
+Only **Strata Harness** is needed. Install `strata-harness-0.1.1.vsix` in a local VS Code window on your PC. In a Remote SSH window, use VS Code's **Install in SSH: [host]** action for Strata Harness (or install the same VSIX there). It remains a workspace extension so the harness executes beside the remote project.
 
 Connection URLs, model IDs, context limits and keys are saved together in VS Code **SecretStorage**, which VS Code keeps on the client PC even for remote extensions. The first setup saves a default connection. A new SSH host reads that default automatically without a profile picker or repeated login. The runtime is provisioned when needed; the remote host must be able to reach the saved API address.
 
@@ -106,3 +106,5 @@ Image input requires a vision-capable model served through the supported OpenAI 
 ## Initial public release
 
 v0.1.0 contains the features developed and tested through the private v0.1.28 preview. Development history is retained. Existing preview users must manually install the v0.1.0 VSIX because VS Code does not automatically downgrade extensions. Publisher and extension IDs are unchanged, so saved connections and chat storage remain associated with the same extension.
+
+Delete a saved chat using the × button beside it in the chat list (shown on hover or keyboard focus), then confirm Delete. Stop a running turn first. This removes the extension’s saved transcript for that workspace; project files and underlying harness session logs are not deleted.

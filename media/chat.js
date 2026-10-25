@@ -40,7 +40,10 @@ function renderChats() {
     const row=document.createElement('button');row.className='chat-row';row.disabled=working;
     const name=document.createElement('span');name.className='chat-row-title';name.textContent=chat.title;
     const date=document.createElement('span');date.className='chat-row-date';date.textContent=relativeAge(chat.updatedAt);date.title=new Date(chat.updatedAt).toLocaleString();row.title=chat.title;
-    row.append(name,date);row.onclick=()=>vscode.postMessage({type:'openChat',id:chat.id});$('chat-list').append(row);
+    row.append(name,date);row.onclick=()=>vscode.postMessage({type:'openChat',id:chat.id});
+    const item=document.createElement('div');item.className='chat-list-item';
+    const remove=document.createElement('button');remove.className='delete-chat';remove.textContent='×';remove.title='Delete chat';remove.setAttribute('aria-label','Delete '+chat.title);remove.disabled=working;remove.onclick=()=>vscode.postMessage({type:'deleteChat',id:chat.id});
+    item.append(row,remove);$('chat-list').append(item);
   }
   if(!items.length){const empty=document.createElement('p');empty.className='empty-chats';empty.textContent=query?'No matching chats.':'Start a conversation with New chat above.';$('chat-list').append(empty);}
 }

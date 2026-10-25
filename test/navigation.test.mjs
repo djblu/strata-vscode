@@ -9,6 +9,7 @@ test('header shows active title and embedded list opens a selected session',asyn
  dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
  const $=id=>dom.window.document.getElementById(id);const event=m=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data:m}));
  event({type:'chatMetadata',activeId:'a',chats:[{id:'a',title:'Set Up Qwen on llama.cpp',updatedAt:Date.now()-31*86400000},{id:'b',title:'Build app',updatedAt:Date.now()-14*86400000}]});
+ $('chat-list').children[0].querySelector('.delete-chat').click();assert.equal(sent.at(-1).type,'deleteChat');assert.equal(sent.at(-1).id,'a');
  assert.equal($('chat-title').textContent,'Set Up Qwen on llama.cpp');
  $('chats').click();assert.equal(sent.at(-1).type,'chats');event({type:'page',page:'chats'});
  assert.equal($('chat-page').hidden,false);assert.equal($('history').hidden,true);assert.equal($('composer-footer').hidden,true);assert.equal($('chat-title').textContent,'Chats');
@@ -17,7 +18,7 @@ test('header shows active title and embedded list opens a selected session',asyn
  assert.equal($('chat-search').hidden,true);$('recent').click();assert.equal($('chat-search').hidden,false);
  $('settings').click();assert.equal($('settings-menu').hidden,false);$('settings').click();assert.equal($('settings-menu').hidden,true);
  $('chat-search').value='build';$('chat-search').dispatchEvent(new dom.window.Event('input'));
- assert.equal($('chat-list').children.length,1);$('chat-list').children[0].click();assert.equal(sent.at(-1).id,'b');
+ assert.equal($('chat-list').children.length,1);$('chat-list').children[0].querySelector('.chat-row').click();assert.equal(sent.at(-1).id,'b');
  event({type:'chatMetadata',activeId:'b',chats:[{id:'b',title:'Build app',updatedAt:Date.now()-14*86400000}]});event({type:'page',page:'chat'});
  assert.equal($('chat-title').textContent,'Build app');assert.equal($('composer-footer').hidden,false);assert.equal($('chats').hidden,false);
  event({type:'modelInfo',model:'swift-1.5-q4_k_m',thinking:'Low'});assert.equal($('model-label').textContent,'swift-1.5-q4_k_m · Low');
