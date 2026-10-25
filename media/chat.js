@@ -38,9 +38,20 @@ function scroll() {if(follow)history.scrollTop=history.scrollHeight;}
 history.addEventListener('scroll',()=>{follow=history.scrollHeight-history.scrollTop-history.clientHeight<80;});
 const copies=new Map();let copyId=0;
 function formatted(item) {
-  if(item && ['assistant','reasoning'].includes(item.role) && typeof CodeBlocks!=='undefined') CodeBlocks.render(item.body,item.text,(text,button)=>{
+  if(!item)return;
+  if(item.formatTimer){clearTimeout(item.formatTimer);item.formatTimer=undefined;}
+  if(!['assistant','reasoning'].includes(item.role)||typeof CodeBlocks==='undefined'||item.rendered===item.text)return;
+  // Only re-render the changing message, never the conversation or persisted sessions.
+  const positions=Array.from(item.body.querySelectorAll('pre')).map(pre=>pre.scrollLeft);
+  CodeBlocks.render(item.body,item.text,(text,button)=>{
     const id=++copyId;copies.set(id,button);button.disabled=true;vscode.postMessage({type:'copyCode',id,text});
   },url=>vscode.postMessage({type:'openLink',url}));
+  item.body.querySelectorAll('pre').forEach((pre,index)=>{pre.scrollLeft=positions[index]||0;});
+  item.rendered=item.text;scroll();
+}
+function formatStreaming(item) {
+  if(typeof CodeBlocks==='undefined'){item.body.textContent=item.text;return;}
+  if(!item.formatTimer)item.formatTimer=setTimeout(()=>{item.formatTimer=undefined;formatted(item);},120);
 }
 let editing=false,previousDraft='';
 function endEdit(restoreDraft=false) {if(restoreDraft)$('prompt').value=previousDraft;editing=false;previousDraft='';$('edit-notice').hidden=true;$('send').title='Send message (Enter)';}
@@ -90,7 +101,7 @@ function entry(role,text,timestamp) {
   while(history.children.length>120)history.firstChild.remove();
   scroll();
 }
-function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
+function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('permission-control').disabled=value;if(value)closePermissionMenu();$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
@@ -106,7 +117,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
-  else if(m.type==='restore'){showPermission(m.mode);endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
+  else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
