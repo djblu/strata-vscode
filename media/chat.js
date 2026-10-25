@@ -2,6 +2,23 @@
 const vscode = acquireVsCodeApi();
 const $ = id => document.getElementById(id);
 const history = $('history'), cards = new Map();
+let attachments=[],attachmentId=0;
+function drawAttachments(){const area=$('attachments');area.replaceChildren();area.hidden=!attachments.length;for(const a of attachments){
+ const card=document.createElement('div');card.className='attachment-card';
+ if(a.url){const img=document.createElement('img');img.src=a.url;img.alt=a.name;card.append(img);}else{const icon=document.createElement('div');icon.className='attachment-file';icon.textContent='▱';card.append(icon);}
+ const label=document.createElement('div');label.className='attachment-name';label.textContent=a.name;label.title=a.name;
+ const remove=document.createElement('button');remove.className='attachment-remove';remove.textContent='×';remove.title='Remove '+a.name;remove.setAttribute('aria-label',remove.title);remove.onclick=()=>{attachments=attachments.filter(x=>x.id!==a.id);drawAttachments();};card.append(label,remove);area.append(card);
+}}
+function addAttachment(a){if(attachments.length>=20){$('status').textContent='Attach up to 20 items per message.';return;}attachments.push({...a,id:++attachmentId});drawAttachments();}
+let imageReads=Promise.resolve();
+function addImages(files){imageReads=imageReads.then(async()=>{for(const file of files){
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>5*1024*1024){$('status').textContent='Use PNG, JPEG or WebP images up to 5 MB each.';continue;}
+ if(attachments.filter(a=>a.url).length>=4||attachments.reduce((n,a)=>n+(a.size||0),0)+file.size>16*1024*1024){$('status').textContent='Image limit: four images, 16 MB total.';continue;}
+ const chat=activeChat;const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+ if(chat===activeChat)addAttachment({name:file.name||'Screenshot.png',url,size:file.size});
+ }}).catch(()=>{$('status').textContent='Could not read the image.';});}
+$('image-picker').onchange=()=>{addImages(Array.from($('image-picker').files));$('image-picker').value='';};
+$('prompt').addEventListener('paste',event=>{const files=Array.from(event.clipboardData?.items||[]).filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();addImages(files);}});
 let last, buffer = '', bufferRole, scheduled, working = false, follow = true;
 let page='chat',chatItems=[],activeChat;
 function showPage(next) {
@@ -119,7 +136,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
-  else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
+  else if(m.type==='restore'){if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
@@ -134,6 +151,8 @@ window.addEventListener('message',({data:m})=>{
     $('compact-description').textContent=known?`Compact this chat’s context (${Math.round(m.used/m.max*100)}% full)`:'Compact this chat’s context';
   }
   else if(m.type==='status'){$('status').textContent=m.text;if(m.manualCompaction){manualCompaction=true;$('stop').disabled=true;$('stop').title='Manual compaction is running';}else if(!manualCompaction)$('stop').title='Stop generation';}
+  else if(m.type==='attachment')addAttachment(m.attachment);
+  else if(m.type==='sendAccepted'){attachments=attachments.filter(a=>!(m.attachmentIds||[]).includes(a.id));drawAttachments();if($('prompt').value===m.text)$('prompt').value='';}
   else if(m.type==='selection'){$('prompt').value+=m.text;$('prompt').focus();}
   else if(m.type==='tool'){
     const t=m.tool;let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
@@ -171,19 +190,20 @@ $('permission-menu').addEventListener('keydown',e=>{
 });
 $('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.postMessage({type:'permissionMode',mode:$('mode').value});});
 
-$('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};
+$('send').onclick=()=>{const draftText=$('prompt').value;if(working||(!draftText.trim()&&!attachments.length))return;const text=(draftText||'Please review the attached items.')+attachments.filter(a=>a.text).map(a=>a.text).join('');follow=true;vscode.postMessage({type:'send',text,draftText,mode:$('mode').value,images:attachments.filter(a=>a.url).map(a=>({name:a.name,url:a.url})),attachmentIds:attachments.map(a=>a.id)});endEdit();$('compact-command').hidden=true;};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
 for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect','profiles'])$(type).onclick=()=>vscode.postMessage({type});
 function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}
 $('add-context').onclick=()=>{const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
-for(const action of ['files','selection','git','plan'])$('add-'+action).onclick=()=>{
+for(const action of ['files','images','selection','git','plan'])$('add-'+action).onclick=()=>{
   closeAddMenu();
-  if(action==='plan'){vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
+  if(action==='images')$('image-picker').click();
+  else if(action==='plan'){vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
   else vscode.postMessage({type:action==='selection'?'add-context':'add-'+action});
 };
 document.addEventListener?.('click',e=>{if(!$('add-menu').contains(e.target)&&!$('add-context').contains(e.target))closeAddMenu();});
 $('add-menu').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();closeAddMenu();$('add-context').focus();}
-  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const choices=['files','selection','git','plan'].map(x=>$('add-'+x));const i=choices.indexOf(document.activeElement);choices[e.key==='Home'?0:e.key==='End'?3:(i+(e.key==='ArrowDown'?1:3))%4].focus();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const choices=['files','images','selection','git','plan'].map(x=>$('add-'+x));const i=choices.indexOf(document.activeElement);choices[e.key==='Home'?0:e.key==='End'?choices.length-1:(i+(e.key==='ArrowDown'?1:choices.length-1))%choices.length].focus();}
 });
 vscode.postMessage({type:'loaded'});

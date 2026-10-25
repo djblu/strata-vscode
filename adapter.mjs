@@ -20,7 +20,7 @@ async function initialize(c) {
   const {createAgentBridge} = await import(pathToFileURL(path.join(c.sourcePath, 'apps/host/server/agent/agent-bridge.mjs')));
   bridge = createAgentBridge({dataDir: c.dataDir, gate: true,
     env: {...process.env, STRATA_HARNESS_DIR: c.harnessPath}, nodePath: process.execPath,
-    localInstances: () => [{id: 'vscode', baseUrl: c.baseURL, modelId: c.model, context: c.contextWindow, key: c.apiKey, vision: false, slots: 1}],
+    localInstances: () => [{id: 'vscode', baseUrl: c.baseURL, modelId: c.model, context: c.contextWindow, key: c.apiKey, vision: c.vision===true, slots: 1}],
     connections: () => [], defaultLocalId: () => 'vscode'});
   const status = bridge.status();
   if (status.state === 'unavailable') throw Error(status.reason || 'Harness unavailable');
@@ -39,7 +39,9 @@ async function handle(m) {
     if (active.size) throw Error('A turn is already running');
     active.add(m.chatId);
     try {
-      const options={chatId:m.chatId,message:m.text,workspacePath:config.workspace,mode:m.mode,thinking:config.thinking,
+      const images=(await import('./image-attachments.cjs')).validateImages(m.images);
+      if(images.length&&!config.vision)throw Error('The configured model does not support images');
+      const options={chatId:m.chatId,images,message:m.text,workspacePath:config.workspace,mode:m.mode,thinking:config.thinking,
         onFrame:frame=>emit({type:'frame',chatId:m.chatId,frame})};
       if(/^\/compact(?:\s|$)/.test(m.text.trim())) {
         if(m.text.trim()!=='/compact')throw Error('Use /compact without additional text.');
@@ -84,7 +86,7 @@ async function shutdown() {
   finally { process.exit(0); }
 }
 readline.createInterface({input: process.stdin}).on('line', line => {
-  if (line.length > 1200000) return emit({type: 'error', text: 'Request too large'});
+  if (line.length > 31000000) return emit({type: 'error', text: 'Request too large'});
   let m; try { m = JSON.parse(line); } catch { return emit({type: 'error', text: 'Invalid JSON'}); }
   handle(m).catch(e => emit({type: 'error', chatId: m.chatId, text: String(e.message).split(config?.apiKey || '\0').join('[redacted]')}));
 }).on('close', shutdown);

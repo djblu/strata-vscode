@@ -17,7 +17,7 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  const agent=path.join(dir,'apps/host/server/agent');await mkdir(agent,{recursive:true});
  await writeFile(path.join(agent,'agent-bridge.mjs'),`
  export function createAgentBridge(){let end,frame;
- return {status:()=>({state:'idle'}),compactCommand:async(o)=>{o.onFrame({type:'delta',text:'Compacted fixture'});o.onFrame({type:'done'});},sessionOf:()=> 'session-test',_debug:()=>({rt:{gw:{rpc:async(method,args)=>{if(method!=='commands/execute'||args.line!=='/strata-context')throw Error('Unexpected RPC');return {result:{kind:'success',text:JSON.stringify({tokens:1234,window:8192})}};}}}}),runTurn:async(o)=>{frame=o.onFrame;frame({type:'agent-tool',tool:{id:'write-1',state:'proposed'}});await new Promise(r=>end=r);frame({type:'done'});},
+ return {status:()=>({state:'idle'}),compactCommand:async(o)=>{o.onFrame({type:'delta',text:'Compacted fixture'});o.onFrame({type:'done'});},sessionOf:()=> 'session-test',_debug:()=>({rt:{gw:{rpc:async(method,args)=>{if(method!=='commands/execute'||args.line!=='/strata-context')throw Error('Unexpected RPC');return {result:{kind:'success',text:JSON.stringify({tokens:1234,window:8192})}};}}}}),runTurn:async(o)=>{frame=o.onFrame;if(o.images?.length)frame({type:'delta',text:'image-received:'+o.images[0].name});frame({type:'agent-tool',tool:{id:'write-1',state:'proposed'}});await new Promise(r=>end=r);frame({type:'done'});},
  setMode:async(chatId,mode)=>{if(chatId!=='chat')return {applied:false};await new Promise(r=>setTimeout(r,mode==='bypass'?30:1));return {applied:true,mode};},
  approve:async(o)=>{if(o.callId!=='write-1')throw Error('Not pending');frame({type:'delta',text:o.decision});},stop:async()=>{end?.();return {stopped:true};},close:async()=>{}};}`);
  const p=spawn(process.execPath,[new URL('../adapter.mjs',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});
@@ -26,10 +26,11 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  const send=m=>p.stdin.write(JSON.stringify(m)+'\n');
  async function wait(predicate){const deadline=Date.now()+5000;while(Date.now()<deadline){const m=messages.find(predicate);if(m)return m;await new Promise(r=>setTimeout(r,10));}throw Error('Timed out '+JSON.stringify(messages)+error);}
  try {
- send({type:'init',config:{baseURL:'http://localhost:8082/v1',workspace:dir,dataDir:path.join(dir,'data'),sourcePath:dir}});
+ send({type:'init',config:{baseURL:'http://localhost:8082/v1',workspace:dir,dataDir:path.join(dir,'data'),sourcePath:dir,vision:true}});
  await wait(m=>m.type==='ready');
- send({type:'send',chatId:'chat',mode:'manual',text:'test'});
+ send({type:'send',chatId:'chat',mode:'manual',text:'test',images:[{name:'shot.png',url:'data:image/png;base64,iVBORw0KGgo='}]});
  await wait(m=>m.frame?.type==='agent-tool');
+ await wait(m=>m.frame?.text==='image-received:shot.png');
  send({type:'send',chatId:'other',mode:'manual',text:'test'});
  await wait(m=>m.type==='error'&&m.text.includes('already running'));
  send({type:'approve',chatId:'chat',callId:'forged',decision:'approve'});

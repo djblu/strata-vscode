@@ -8,6 +8,7 @@ const path = require('node:path');
 let shutdown;
 const {updateContext,externalURL}=require('./context-state.cjs');
 function activate(context) {
+  let runtimeVision=false;
   let view, child, ready, busy = false, closing = false;
   const store=new (require('./chat-store.cjs').ChatStore)(context.workspaceState);
   let chatId = context.workspaceState.get('activeChat') || context.workspaceState.get('chatId') || randomUUID();
@@ -171,7 +172,7 @@ function activate(context) {
     const folders = vscode.workspace.workspaceFolders;
     if (folders?.length !== 1 || folders[0].uri.scheme !== 'file') throw Error('Open one filesystem folder (Remote SSH is supported)');
     const cfg = vscode.workspace.getConfiguration('strata');
-    const config = Object.fromEntries(['sourcePath','nodePath','harnessPath','baseURL','model','contextWindow','thinking'].map(k => [k, cfg.get(k)]));
+    const config = Object.fromEntries(['sourcePath','nodePath','harnessPath','baseURL','model','contextWindow','thinking','vision'].map(k => [k, cfg.get(k)]));
     const connection=await getConnection();if(!connection)throw Error('Use Connect to Strata in the settings menu first');
     const localProfile=connection.profileId?await resolveProfile(connection.profileId):undefined;
     if(localProfile){connectionCache=localProfile.connection;connectionInfo();modelInfo();}
@@ -179,6 +180,7 @@ function activate(context) {
     config.workspace = folders[0].uri.fsPath;
     config.apiKey = localProfile?localProfile.apiKey:await context.secrets.get('strata.apiKey')||'';
     config.dataDir = path.join(context.globalStorageUri.fsPath, createHash('sha256').update(config.workspace).digest('hex').slice(0, 24));
+    runtimeVision=config.vision===true;
     await fs.mkdir(config.dataDir, {recursive: true, mode: 0o700});
     const p = spawn(config.nodePath, [path.join(context.extensionPath, 'adapter.mjs')], {cwd: config.workspace, stdio: ['pipe','pipe','pipe']});
     child = p; closing = false;
@@ -256,7 +258,10 @@ function activate(context) {
           const selected=await vscode.window.showOpenDialog({defaultUri:root,canSelectFiles:kind==='Files',canSelectFolders:kind==='Folders',canSelectMany:true,openLabel:'Add context'});
           if(!selected?.length)return;
           if(selected.some(uri=>uri.scheme!=='file'))throw Error('Choose filesystem paths');
-          text=await workspaceReferences(root.fsPath,selected.map(uri=>uri.fsPath));
+          const attachments=[];for(const uri of selected){const reference=await workspaceReferences(root.fsPath,[uri.fsPath]);attachments.push({name:vscode.workspace.asRelativePath(uri),text:reference});}
+          if(chatId!==originalChat)throw Error('Chat changed while adding context; add it again to the intended draft');
+          for(const attachment of attachments)post({type:'attachment',attachment});
+          return;
         }else text=await gitChanges(root.fsPath);
         if(chatId!==originalChat)throw Error('Chat changed while adding context; add it again to the intended draft');
         post({type:'selection',text});
@@ -277,9 +282,12 @@ function activate(context) {
         if (busy) return;
         if(connecting)throw Error('Finish connection setup before sending a message');
         if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');
+        const images=require('./image-attachments.cjs').validateImages(m.images);
+        if(images.length&&!vscode.workspace.getConfiguration('strata').get('vision'))throw Error('Images require a vision-capable model. Enable Strata: Vision in settings for a compatible endpoint, then restart the harness.');
+        if(images.length&&/^\/compact(?:\s|$)/.test(m.text.trim()))throw Error('Remove images before compacting context.');
         permissionMode=m.mode;
         busy = true; post({type:'busy',value:true});
-        try {await start(); add('user',m.text); write({type:'send',chatId,text:m.text,mode:m.mode});}
+        try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.'); add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); write({type:'send',chatId,text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
         catch (e) {busy=false;post({type:'busy',value:false});throw e;}
       } else if (m.type === 'stop') {write({type:'stop',chatId}); post({type:'status',text:'Stopping…'});}
       else if (m.type === 'approve') {

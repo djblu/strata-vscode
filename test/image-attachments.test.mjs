@@ -1,0 +1,31 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {JSDOM} from 'jsdom';
+import html from '../ui.cjs';
+import {validateImages} from '../image-attachments.cjs';
+const png='data:image/png;base64,iVBORw0KGgo=';
+test('image boundary rejects unsupported formats, oversized payloads and false MIME types',()=>{
+ assert.equal(validateImages([{name:'shot.png',url:png}])[0].url,png);
+ assert.throws(()=>validateImages([{url:'data:image/svg+xml;base64,PHN2Zz4='}]),/PNG/);
+ assert.throws(()=>validateImages([{url:'data:image/png;base64,YWJj'}]),/Invalid image/);
+ assert.throws(()=>validateImages(Array(5).fill({url:png})),/four/);
+ assert.throws(()=>validateImages([{url:'data:image/png;base64,'+'A'.repeat(7*1024*1024+1)}]),/5 MB/);
+});
+test('attachment cards and pasted images survive failed sends and clear only on acceptance',async()=>{
+ const dom=new JSDOM(html({nonce:'x',source:'self'}),{runScripts:'outside-only'});const sent=[];
+ dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const $=id=>dom.window.document.getElementById(id),emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));
+ emit({type:'attachment',attachment:{name:'example.html',text:'\nFile: example.html'}});
+ assert.equal($('attachments').querySelector('.attachment-name').textContent,'example.html');assert.equal($('prompt').value,'');
+ const file=new dom.window.File([new Uint8Array([137,80,78,71,13,10,26,10])],'Screenshot.png',{type:'image/png'});
+ const event=new dom.window.Event('paste',{cancelable:true});Object.defineProperty(event,'clipboardData',{value:{items:[{kind:'file',type:file.type,getAsFile:()=>file}]}});
+ $('prompt').dispatchEvent(event);assert.equal(event.defaultPrevented,true);
+ for(let i=0;i<100&&!$('attachments').querySelector('img');i++)await new Promise(r=>setTimeout(r,5));
+ assert.equal($('attachments').querySelector('img').alt,'Screenshot.png');
+ $('prompt').value='Review this';$('send').click();const message=sent.at(-1);assert.equal(message.images.length,1);assert.match(message.text,/File: example.html/);
+ emit({type:'entry',role:'error',text:'Failed'});assert.equal($('attachments').children.length,2);assert.equal($('prompt').value,'Review this');
+ emit({type:'sendAccepted',attachmentIds:message.attachmentIds,text:message.draftText});assert.equal($('attachments').hidden,true);assert.equal($('prompt').value,'');
+ emit({type:'attachment',attachment:{name:'other.txt',text:'File: other.txt'}});$('attachments').querySelector('button').click();assert.equal($('attachments').hidden,true);
+ dom.window.close();
+});
