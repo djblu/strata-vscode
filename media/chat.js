@@ -105,7 +105,8 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='modelInfo'){const text=[m.model,m.thinking].filter(Boolean).join(' · ');$('model-label').textContent=text;$('model-settings').title=text+' — open model and reasoning settings';}
   else if(m.type==='page')showPage(m.page);
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
-  else if(m.type==='restore'){endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
+  else if(m.type==='permissionMode')showPermission(m.mode);
+  else if(m.type==='restore'){showPermission(m.mode);endEdit();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
@@ -130,7 +131,14 @@ window.addEventListener('message',({data:m})=>{
     scroll();
   }
 });
-$('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';$('permission-control').title='Permissions: '+({manual:'Ask before actions',plan:'Read only',bypass:'Full control'}[$('mode').value]);});
+function showPermission(mode) {
+  $('mode').value=['manual','plan','bypass'].includes(mode)?mode:'manual';
+  $('permission-note').hidden=$('mode').value!=='bypass';
+  $('permission-control').title='Permissions: '+({manual:'Ask before actions',plan:'Read only',bypass:'Full control'}[$('mode').value]);
+  $('permission-control').dataset.mode=$('mode').value;
+}
+$('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.postMessage({type:'permissionMode',mode:$('mode').value});});
+
 $('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
 for(const type of ['new','stop','key','changes','chats','rename','add-context','model-settings'])$(type).onclick=()=>vscode.postMessage({type});

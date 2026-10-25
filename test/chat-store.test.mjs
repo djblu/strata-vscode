@@ -22,3 +22,9 @@ test('saving an unchanged chat preserves its activity date',async()=>{
  await new Promise(r=>setTimeout(r,10));await store.save(chat);assert.equal(store.list()[0].updatedAt,before);
  chat.transcript.push({role:'assistant',text:'Hi'});await store.save(chat);assert.ok(store.list()[0].updatedAt>before);
 });
+
+test('permission choices persist per conversation',async()=>{
+ const state=memory(),store=new ChatStore(state);
+ await store.save({id:'a',mode:'bypass',transcript:[],contextInfo:{}});await store.save({id:'b',mode:'manual',transcript:[],contextInfo:{}});
+ const restored=new ChatStore(state);assert.equal(restored.load('a').mode,'bypass');assert.equal(restored.load('b').mode,'manual');
+});

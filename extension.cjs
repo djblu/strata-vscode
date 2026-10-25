@@ -12,6 +12,8 @@ function activate(context) {
   const store=new (require('./chat-store.cjs').ChatStore)(context.workspaceState);
   let chatId = context.workspaceState.get('activeChat') || context.workspaceState.get('chatId') || randomUUID();
   const saved=store.load(chatId);
+  const validMode=value=>['manual','plan','bypass'].includes(value);
+  let permissionMode=validMode(saved?.mode)?saved.mode:'manual';
   let contextInfo = {...(saved?.contextInfo || context.workspaceState.get('contextInfo', {})), compacting:false};
   function contextFrame(f) {const next=updateContext(contextInfo,f);if(next.used===contextInfo.used&&next.max===contextInfo.max&&next.compacting===contextInfo.compacting)return;contextInfo=next;post({type:'contextInfo',...contextInfo});persist();}
   let transcript = saved?.transcript || context.workspaceState.get('transcript') || [];
@@ -23,7 +25,7 @@ function activate(context) {
   function modelInfo(){const cfg=vscode.workspace.getConfiguration('strata');post({type:'modelInfo',model:cfg.get('model'),thinking:cfg.get('thinking')});}
   context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e=>{if(e.affectsConfiguration('strata'))modelInfo();}));
   function chatMetadata() {post({type:'chatMetadata',activeId:chatId,chats:store.list()});}
-  async function saveChat() {await store.save({id:chatId,transcript,contextInfo});chatMetadata();}
+  async function saveChat() {await store.save({id:chatId,transcript,contextInfo,mode:permissionMode});chatMetadata();}
   function persist() {
     if(timer)return;
     timer=setTimeout(()=>{timer=undefined;saveChat().catch(e=>vscode.window.showErrorMessage(`Strata could not save chat: ${e.message}`));},1000);
@@ -34,8 +36,9 @@ function activate(context) {
     try {
       clearTimeout(timer);timer=undefined;await saveChat();
       const target=id?store.load(id):null;if(id&&!target)throw Error('Chat not found');
+      permissionMode=validMode(target?.mode)?target.mode:'manual';
       chatId=target?.id||randomUUID();transcript=target?.transcript||[];contextInfo={...target?.contextInfo,compacting:false};pending.clear();
-      await saveChat();post({type:'restore',transcript,busy:false});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});post({type:'page',page:'chat'});
+      await saveChat();post({type:'restore',transcript,busy:false,mode:permissionMode});post({type:'contextInfo',...contextInfo});post({type:'status',text:'Ready'});post({type:'page',page:'chat'});
     } finally {busy=false;post({type:'busy',value:false});}
   }
   async function chooseChat() {
@@ -77,7 +80,7 @@ function activate(context) {
     else if (f.type === 'status') post({type: 'status', text: f.text || 'Ready', manualCompaction:f.manual===true});
     else if (f.type === 'context') { /* Displayed in the composer, independently of turn status. */ }
     else if (f.type === 'notice') add('notice', f.text || f.message || 'Harness notice');
-    else if (f.type === 'start') post({type: 'status', text: `Running · ${f.model || 'Strata'}`});
+    else if (f.type === 'start') {if(validMode(f.mode)){permissionMode=f.mode;post({type:'permissionMode',mode:permissionMode});persist();}post({type: 'status', text: `Running · ${f.model || 'Strata'}`});}
     else if (f.type === 'done') post({type: 'status', text: `Finished · ${f.tokensIn ?? '?'} input / ${f.tokensOut ?? '?'} output tokens`});
   }
   function write(m) {
@@ -149,7 +152,7 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
+      if (m.type === 'loaded') {modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});}
       else if (m.type === 'openLink') {
         const url=externalURL(m.url);if(!url) throw Error('Only HTTP and HTTPS links can be opened');
         await vscode.env.openExternal(vscode.Uri.parse(url));
@@ -167,9 +170,15 @@ function activate(context) {
       else if (m.type === 'chats') await chooseChat();
       else if (m.type === 'openChat') {if(typeof m.id!=='string'||!store.list().some(c=>c.id===m.id))throw Error('Chat not found');await switchChat(m.id);}
       else if (m.type === 'rename') await renameChat();
+      else if (m.type === 'permissionMode') {
+        if(busy)throw Error('Wait for the current turn before changing permissions');
+        if(!validMode(m.mode))throw Error('Invalid permission mode');
+        permissionMode=m.mode;await saveChat();post({type:'permissionMode',mode:permissionMode});
+      }
       else if (m.type === 'send') {
         if (busy) return;
         if (typeof m.text !== 'string' || !m.text.trim() || m.text.length > 1000000 || !['manual','plan','bypass'].includes(m.mode)) throw Error('Invalid message');
+        permissionMode=m.mode;
         busy = true; post({type:'busy',value:true});
         try {await start(); add('user',m.text); write({type:'send',chatId,text:m.text,mode:m.mode});}
         catch (e) {busy=false;post({type:'busy',value:false});throw e;}

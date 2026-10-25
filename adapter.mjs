@@ -3,6 +3,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {mkdir, realpath} from 'node:fs/promises';
 import {validate} from './protocol.cjs';
+import {permissionContext} from './permission-context.cjs';
 const output = process.stdout.write.bind(process.stdout);
 console.log = (...args) => console.error(...args);
 let bridge, config, initializing, closing = false;
@@ -57,7 +58,7 @@ async function handle(m) {
             options.onFrame({type:'context',contextTokens:Math.round(count.tokens),contextMax:Number(count.window)||config.contextWindow});
           } catch {options.onFrame({type:'context',unavailable:true});}
         } finally {compacting.delete(m.chatId);}
-      } else await bridge.runTurn(options);
+      } else await bridge.runTurn({...options,message:permissionContext(m.text,m.mode)});
     } finally { active.delete(m.chatId); emit({type: 'idle', chatId: m.chatId}); }
   } else if (m.type === 'approve') {
     await bridge.approve({chatId: m.chatId, callId: m.callId, decision: m.decision});
