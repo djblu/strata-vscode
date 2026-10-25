@@ -7,6 +7,7 @@ const output = process.stdout.write.bind(process.stdout);
 console.log = (...args) => console.error(...args);
 let bridge, config, initializing, closing = false;
 const active = new Set();
+const compacting = new Set();
 function emit(event) { output(JSON.stringify(event) + '\n'); }
 async function initialize(c) {
   config = c;
@@ -36,12 +37,32 @@ async function handle(m) {
     if (active.size) throw Error('A turn is already running');
     active.add(m.chatId);
     try {
-      await bridge.runTurn({chatId: m.chatId, message: m.text, workspacePath: config.workspace,
-        mode: m.mode, thinking: config.thinking, onFrame: frame => emit({type: 'frame', chatId: m.chatId, frame})});
+      const options={chatId:m.chatId,message:m.text,workspacePath:config.workspace,mode:m.mode,thinking:config.thinking,
+        onFrame:frame=>emit({type:'frame',chatId:m.chatId,frame})};
+      if(/^\/compact(?:\s|$)/.test(m.text.trim())) {
+        if(m.text.trim()!=='/compact')throw Error('Use /compact without additional text.');
+        if(typeof bridge.compactCommand!=='function')throw Error('This Strata bridge does not support /compact.');
+        compacting.add(m.chatId);
+        options.onFrame({type:'status',phase:'compacting',code:'compacting',manual:true,text:'Compressing context…'});
+        try {
+          await bridge.compactCommand(options);
+          // The bridge command reports a summary but does not emit an updated token count.
+          try {
+            const sessionId=bridge.sessionOf(m.chatId),runtime=bridge._debug().rt;
+            if(!sessionId||!runtime?.gw)throw Error('No active session');
+            const response=await runtime.gw.rpc('commands/execute',{agentId:sessionId,line:'/strata-context',submittedAttachments:[]});
+            if(response?.result?.kind!=='success')throw Error('Context unavailable');
+            const count=JSON.parse(response.result.text);
+            if(!Number.isFinite(count.tokens)||count.tokens<0)throw Error('Context unavailable');
+            options.onFrame({type:'context',contextTokens:Math.round(count.tokens),contextMax:Number(count.window)||config.contextWindow});
+          } catch {options.onFrame({type:'context',unavailable:true});}
+        } finally {compacting.delete(m.chatId);}
+      } else await bridge.runTurn(options);
     } finally { active.delete(m.chatId); emit({type: 'idle', chatId: m.chatId}); }
   } else if (m.type === 'approve') {
     await bridge.approve({chatId: m.chatId, callId: m.callId, decision: m.decision});
   } else if (m.type === 'stop') {
+    if(compacting.has(m.chatId))throw Error('Manual compaction is still running; wait for it to finish.');
     emit({type: 'stopped', chatId: m.chatId, result: await bridge.stop(m.chatId)});
   } else if (m.type === 'status') emit({type: 'status', status: bridge.status()});
   else await shutdown();

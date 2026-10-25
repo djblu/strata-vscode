@@ -1,6 +1,7 @@
 'use strict';
 function updateContext(previous, frame) {
   const state={...previous};
+  if(frame.type==='context'&&frame.unavailable)delete state.used;
   if(Number.isFinite(frame.contextMax)&&frame.contextMax>0)state.max=frame.contextMax;
   if(Number.isFinite(frame.contextTokens)&&frame.contextTokens>=0)state.used=frame.contextTokens;
   if(frame.type==='status')state.compacting=frame.phase==='compacting'||frame.code==='compacting';

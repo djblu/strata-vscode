@@ -74,7 +74,7 @@ function activate(context) {
       if (t.state === 'proposed') pending.set(t.id, t); else pending.delete(t.id);
       post({type: 'tool', tool: t});
     } else if (f.type === 'error') add('error', f.message || f.text || JSON.stringify(f));
-    else if (f.type === 'status') post({type: 'status', text: f.text || 'Ready'});
+    else if (f.type === 'status') post({type: 'status', text: f.text || 'Ready', manualCompaction:f.manual===true});
     else if (f.type === 'context') { /* Displayed in the composer, independently of turn status. */ }
     else if (f.type === 'notice') add('notice', f.text || f.message || 'Harness notice');
     else if (f.type === 'start') post({type: 'status', text: `Running · ${f.model || 'Strata'}`});

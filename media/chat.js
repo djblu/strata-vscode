@@ -30,6 +30,10 @@ function renderChats() {
 $('chat-search').addEventListener('input',renderChats);
 $('recent').onclick=()=>{const search=$('chat-search');search.hidden=!search.hidden;if(!search.hidden)search.focus();else{search.value='';renderChats();}};
 $('settings').onclick=()=>{$('settings-menu').hidden=!$('settings-menu').hidden;};
+let manualCompaction=false;
+function commandSuggestion(){const value=$('prompt').value.trim();$('compact-command').hidden=working||!value.startsWith('/')||!'/compact'.startsWith(value);}
+$('prompt').addEventListener('input',commandSuggestion);
+$('compact-command').onclick=()=>{if(working)return;$('prompt').value='/compact';$('send').click();};
 function scroll() {if(follow)history.scrollTop=history.scrollHeight;}
 history.addEventListener('scroll',()=>{follow=history.scrollHeight-history.scrollTop-history.clientHeight<80;});
 const copies=new Map();let copyId=0;
@@ -89,6 +93,7 @@ function entry(role,text,timestamp) {
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;last.body.textContent=last.text;buffer='';scroll();}
 function busy(value) {
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('mode').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
+  if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
   for(const edit of history.querySelectorAll('.edit-message'))edit.disabled=value;
   if(!value)formatted(last);
@@ -110,8 +115,9 @@ window.addEventListener('message',({data:m})=>{
     $('context-usage').textContent=known?`${m.used.toLocaleString()} / ${m.max.toLocaleString()} tokens · ${left.toLocaleString()} left (${Math.max(0,Math.round(left/m.max*100))}%)`:'Context usage not yet reported';
     $('context-usage').title='Latest reported context usage. Remaining window is shared by prompts, tools and replies; the harness may compact earlier to reserve space.';
     $('compaction').hidden=!m.compacting;
+    $('compact-description').textContent=known?`Compact this chat’s context (${Math.round(m.used/m.max*100)}% full)`:'Compact this chat’s context';
   }
-  else if(m.type==='status')$('status').textContent=m.text;
+  else if(m.type==='status'){$('status').textContent=m.text;if(m.manualCompaction){manualCompaction=true;$('stop').disabled=true;$('stop').title='Manual compaction is running';}else if(!manualCompaction)$('stop').title='Stop generation';}
   else if(m.type==='selection'){$('prompt').value+=m.text;$('prompt').focus();}
   else if(m.type==='tool'){
     const t=m.tool;let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
@@ -125,7 +131,7 @@ window.addEventListener('message',({data:m})=>{
   }
 });
 $('mode').addEventListener('change',()=>{$('permission-note').hidden=$('mode').value!=='bypass';$('permission-control').title='Permissions: '+({manual:'Ask before actions',plan:'Read only',bypass:'Full control'}[$('mode').value]);});
-$('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();};
-$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working)$('send').click();}});
+$('send').onclick=()=>{const text=$('prompt').value;if(working||!text.trim())return;follow=true;vscode.postMessage({type:'send',text,mode:$('mode').value});$('prompt').value='';endEdit();commandSuggestion();};
+$('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
 for(const type of ['new','stop','key','changes','chats','rename','add-context','model-settings'])$(type).onclick=()=>vscode.postMessage({type});
 vscode.postMessage({type:'loaded'});

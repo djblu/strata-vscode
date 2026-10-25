@@ -17,7 +17,7 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  const agent=path.join(dir,'apps/host/server/agent');await mkdir(agent,{recursive:true});
  await writeFile(path.join(agent,'agent-bridge.mjs'),`
  export function createAgentBridge(){let end,frame;
- return {status:()=>({state:'idle'}),runTurn:async(o)=>{frame=o.onFrame;frame({type:'agent-tool',tool:{id:'write-1',state:'proposed'}});await new Promise(r=>end=r);frame({type:'done'});},
+ return {status:()=>({state:'idle'}),compactCommand:async(o)=>{o.onFrame({type:'delta',text:'Compacted fixture'});o.onFrame({type:'done'});},sessionOf:()=> 'session-test',_debug:()=>({rt:{gw:{rpc:async(method,args)=>{if(method!=='commands/execute'||args.line!=='/strata-context')throw Error('Unexpected RPC');return {result:{kind:'success',text:JSON.stringify({tokens:1234,window:8192})}};}}}}),runTurn:async(o)=>{frame=o.onFrame;frame({type:'agent-tool',tool:{id:'write-1',state:'proposed'}});await new Promise(r=>end=r);frame({type:'done'});},
  approve:async(o)=>{if(o.callId!=='write-1')throw Error('Not pending');frame({type:'delta',text:o.decision});},stop:async()=>{end?.();return {stopped:true};},close:async()=>{}};}`);
  const p=spawn(process.execPath,[new URL('../adapter.mjs',import.meta.url).pathname],{stdio:['pipe','pipe','pipe']});
  const messages=[];let error='';p.stderr.on('data',x=>error+=x);
@@ -38,6 +38,13 @@ test('adapter streams, enforces one turn, routes approvals and cancels through b
  send({type:'stop',chatId:'chat'});
  await wait(m=>m.type==='stopped'&&m.result.stopped);
  await wait(m=>m.type==='idle');
+ messages.length=0;
+ send({type:'send',chatId:'chat',mode:'manual',text:'/compact'});
+ await wait(m=>m.type==='idle');
+ assert.ok(messages.some(m=>m.frame?.manual===true&&m.frame?.phase==='compacting'));
+ assert.ok(messages.some(m=>m.frame?.text==='Compacted fixture'));
+ assert.ok(messages.some(m=>m.frame?.contextTokens===1234&&m.frame?.contextMax===8192));
+ assert.equal(messages.some(m=>m.frame?.type==='agent-tool'),false);
  send({type:'close'});
  await new Promise(resolve=>p.once('exit',resolve));
  }finally{p.kill();await rm(dir,{recursive:true,force:true});}
