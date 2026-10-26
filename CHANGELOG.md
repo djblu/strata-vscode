@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11 — 2026-10-26
+
+- Add rounded Shell panels with copyable command text and scrollable output.
+- Group consecutive commands under Running commands / Ran commands; preserve approval visibility and saved-chat grouping.
+
 ## 0.1.10 — 2026-10-26
 
 - Size user message bubbles to their text and align them right, with wrapping for long messages.

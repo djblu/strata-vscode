@@ -123,13 +123,33 @@ function renderTool(t){
   clearThinking();
   if(t.name==='present'&&!['proposed','error','denied'].includes(t.state)){const old=cards.get(t.id);if(old){old.remove();cards.delete(t.id);}return;}
   formatted(last);last=undefined;
-  let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
+  const shell=['bash','pwsh','shell','exec_command'].includes(t.name);
+  let card=cards.get(t.id);if(!card){
+    card=document.createElement('details');card.className='tool';if(shell)card.dataset.shell='true';cards.set(t.id,card);
+    const previous=history.lastElementChild;
+    if(shell&&previous?.classList.contains('command-group'))previous.append(card);
+    else if(shell&&previous?.dataset.shell==='true'){
+      const group=document.createElement('details');group.className='command-group';group.append(activitySummary('Running commands','command'));history.insertBefore(group,previous);group.append(previous,card);
+    }else history.append(card);
+  }
     if(t.state==='proposed')card.open=true;
     else if(card.dataset?.state==='proposed')card.open=false;
     card.dataset.state=t.state;
     card.replaceChildren();const title=toolSummary(t);
-    const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');card.append(title,preview);
+    const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');
+    if(shell){
+      const panel=document.createElement('div');panel.className='shell-panel';const header=document.createElement('div');header.className='shell-header';const label=document.createElement('span');label.textContent='Shell';
+      const command=String(t.args?.command??t.args?.cmd??t.preview??'');preview.textContent=(command?'$ '+command+'\n':'')+(t.result==null?'':String(t.result).slice(0,16000));
+      const copy=document.createElement('button');copy.textContent='Copy';copy.title='Copy command and output';copy.onclick=()=>{const id=++copyId;copies.set(id,copy);copy.disabled=true;vscode.postMessage({type:'copyCode',id,text:preview.textContent});};header.append(label,copy);panel.append(header,preview);card.append(title,panel);
+    }else card.append(title,preview);
     if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
+    const group=card.parentElement;
+    if(group?.classList.contains('command-group')){
+      const children=Array.from(group.children).filter(n=>n.classList.contains('tool'));
+      group.querySelector('summary .activity-label').textContent=children.some(n=>['running','proposed'].includes(n.dataset.state))?'Running commands':'Ran commands';
+      if(children.some(n=>['proposed','error','denied'].includes(n.dataset.state)))group.open=true;
+      if(['proposed','error','denied'].includes(t.state))card.open=true;
+    }
 }
 let workTimer,liveWork;
 function workDuration(ms){const seconds=Math.max(0,Math.floor(ms/1000)),minutes=Math.floor(seconds/60);return minutes?`${minutes}min ${seconds%60}s`:`${seconds}s`;}

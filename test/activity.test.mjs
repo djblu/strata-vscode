@@ -74,3 +74,12 @@ test('presentation bookkeeping is hidden live and on restore without hiding answ
  emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'tool',text:JSON.stringify(tool)},{role:'assistant',text:'Created timezones.html'}]});assert.equal(dom.window.document.querySelector('.tool'),null);assert.match(dom.window.document.getElementById('history').textContent,/Created timezones.html/);
  emit({type:'tool',tool:{...tool,state:'proposed'}});assert.ok(dom.window.document.querySelector('.tool button'));emit({type:'tool',tool});assert.equal(dom.window.document.querySelector('.tool'),null);dom.window.close();
 });
+
+test('shell panels group consecutive commands, preserve approvals, copy literal output and restore',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});const sent=[];dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));const a={id:'a',name:'bash',state:'done',args:{command:'echo hello'},result:'<script>literal</script>'},b={id:'b',name:'pwsh',state:'proposed',args:{command:'Get-Date'}};
+ emit({type:'tool',tool:a});assert.equal(dom.window.document.querySelector('.command-group'),null);const panel=dom.window.document.querySelector('.shell-panel');assert.match(panel.textContent,/Shell/);assert.equal(panel.querySelector('script'),null);panel.querySelector('button').click();assert.equal(sent.at(-1).text,'$ echo hello\n<script>literal</script>');
+ emit({type:'tool',tool:b});const group=dom.window.document.querySelector('.command-group');assert.equal(group.querySelectorAll('.tool').length,2);assert.equal(group.open,true);assert.equal(group.querySelector('.activity-label').textContent,'Running commands');emit({type:'tool',tool:{...b,state:'done',result:'today'}});assert.equal(group.querySelector('.activity-label').textContent,'Ran commands');
+ emit({type:'entry',role:'assistant',text:'Next step'});emit({type:'tool',tool:{...a,id:'c'}});assert.equal(group.querySelectorAll('.tool').length,2);
+ emit({type:'restore',mode:'manual',busy:false,transcript:[a,{...b,state:'done'}].map(tool=>({role:'tool',text:JSON.stringify(tool)}))});assert.equal(dom.window.document.querySelectorAll('.command-group .shell-panel').length,2);dom.window.close();
+});

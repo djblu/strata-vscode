@@ -61,3 +61,12 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 .live-work .working-title{padding:4px 0 10px;border-bottom:1px solid var(--vscode-panel-border);font-size:12px;font-weight:400}
 
 .thinking-marker{color:var(--vscode-descriptionForeground);font-size:12px;margin:6px 0 12px;white-space:normal}
+
+/* Consecutive shell commands share a compact disclosure row. */
+.command-group{margin:2px 0;color:var(--vscode-descriptionForeground);font-size:12px;min-width:0;flex-shrink:0}
+.command-group>summary.activity-summary{display:flex;align-items:center;gap:7px;padding:4px 0;line-height:20px;list-style:none;cursor:pointer}
+.command-group>.tool{border:0;border-radius:0;margin:2px 0;background:transparent;min-width:0}
+.tool .shell-panel{background:var(--vscode-input-background);border:1px solid var(--vscode-panel-border);border-radius:12px;overflow:hidden;margin:4px 0 12px}
+.shell-header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;color:var(--vscode-descriptionForeground);font-size:12px}
+.tool .shell-header button{margin:0;padding:3px 6px;background:transparent;font-size:11px}
+.tool .shell-panel pre{margin:0;padding:8px 10px 12px;max-height:280px;overflow:auto;white-space:pre;overflow-wrap:normal;line-height:1.6;font:12px/1.6 var(--vscode-editor-font-family)}
