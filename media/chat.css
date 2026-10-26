@@ -105,5 +105,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 
 /* Shared height limit for expanded chat dropdowns, including nested activity. */
 #history{--disclosure-max-height:min(360px,60vh)}
-#history details:is(.command-group,.tool,.reasoning)[open]{max-height:var(--disclosure-max-height);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;scrollbar-width:thin;overscroll-behavior-y:contain;min-height:0}
+#history details:is(.tool,.reasoning)[open]{max-height:var(--disclosure-max-height);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;scrollbar-width:thin;overscroll-behavior-y:contain;min-height:0}
 #history .tool .shell-panel pre,#history .tool>pre,#history .reasoning>.content{max-height:calc(var(--disclosure-max-height) - 100px);overflow-y:auto;scrollbar-gutter:stable;scrollbar-width:thin}

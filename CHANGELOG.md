@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.25 — 2026-10-26
+
+- Remove height limits and internal scrolling from parent activity groups such as Ran commands. Individual tool dropdowns and output remain bounded.
+
 ## 0.1.24 — 2026-10-26
 
 - Exempt Worked for sections from dropdown height limits; nested action groups and tools remain scrollable.
