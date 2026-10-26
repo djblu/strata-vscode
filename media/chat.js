@@ -121,6 +121,7 @@ let thinkingMarker;
 function clearThinking(){if(thinkingMarker){thinkingMarker.remove();thinkingMarker=undefined;}if(last?.role==='reasoning')last=undefined;}
 function renderTool(t){
   clearThinking();
+  if(t.name==='present'&&!['proposed','error','denied'].includes(t.state)){const old=cards.get(t.id);if(old){old.remove();cards.delete(t.id);}return;}
   formatted(last);last=undefined;
   let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
     if(t.state==='proposed')card.open=true;

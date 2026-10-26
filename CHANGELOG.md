@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9 — 2026-10-26
+
+- Hide routine Showed you a result presentation-tool rows in live and saved chats. Keep answers, approvals and failures visible.
+
 ## 0.1.8 — 2026-10-26
 
 - Remove the temporary Thinking indicator when commentary or tools begin, or the turn ends.

@@ -66,3 +66,11 @@ test('thinking disappears on commentary, tool activity, idle and completed resto
  emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'reasoning',text:'old private text'}]});assert.equal(marker(),null);
  emit({type:'restore',mode:'manual',busy:true,transcript:[{role:'reasoning',text:''}]});assert.ok(marker());dom.window.close();
 });
+
+test('presentation bookkeeping is hidden live and on restore without hiding answers or approvals',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));const tool={id:'p',name:'present',verb:'Showed you a result',state:'done',args:{files:[{path:'timezones.html'}]}};
+ emit({type:'tool',tool:{...tool,state:'running'}});emit({type:'tool',tool});assert.equal(dom.window.document.querySelector('.tool'),null);
+ emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'tool',text:JSON.stringify(tool)},{role:'assistant',text:'Created timezones.html'}]});assert.equal(dom.window.document.querySelector('.tool'),null);assert.match(dom.window.document.getElementById('history').textContent,/Created timezones.html/);
+ emit({type:'tool',tool:{...tool,state:'proposed'}});assert.ok(dom.window.document.querySelector('.tool button'));emit({type:'tool',tool});assert.equal(dom.window.document.querySelector('.tool'),null);dom.window.close();
+});
