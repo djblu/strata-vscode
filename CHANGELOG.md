@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10 — 2026-10-26
+
+- Size user message bubbles to their text and align them right, with wrapping for long messages.
+
 ## 0.1.9 — 2026-10-26
 
 - Hide routine Showed you a result presentation-tool rows in live and saved chats. Keep answers, approvals and failures visible.
