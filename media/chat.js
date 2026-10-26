@@ -85,6 +85,15 @@ function activitySummary(label,kind='thought') {
   const arrow=document.createElement('span');arrow.className='activity-chevron';arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5"/></svg>';
   summary.append(icon,text,arrow);return summary;
 }
+function actionKind(t){
+  const name=String(t.name||'');
+  if(['bash','pwsh','shell','exec_command'].includes(name))return 'command';
+  if(['delete','delete_file','remove_file','unlink'].includes(name))return 'delete';
+  if(['read','read_file','read_image','view_file'].includes(name))return 'read';
+  if(['write','write_file','edit','edit_file','apply_patch','patch'].includes(name))return 'write';
+  if(/search|grep|glob|find/i.test(name))return 'search';
+  return 'other';
+}
 function toolSummary(t) {
   const name=String(t.name||'Tool');const args=t.args||{};const done=t.state==='done';
   let kind='command',verb=t.verb||name,target=t.target||'';
@@ -97,7 +106,13 @@ function toolSummary(t) {
   if(t.state==='proposed')label+=' · Approval needed';
   if(t.state==='denied')label+=' · Denied';
   if(t.state==='error')label+=' · Failed';
-  return activitySummary(label,kind);
+  const summary=activitySummary(label,kind),file=t.args?.file_path??t.args?.path,action=actionKind(t);
+  if(typeof file==='string'&&['read','write','delete'].includes(action)){
+    const text=summary.querySelector('.activity-label');text.textContent=({read:done?'Read':'Reading',write:done?'Edited':'Editing',delete:done?'Deleted':'Deleting'})[action]+' ';
+    const link=document.createElement('button');link.className='activity-file';link.textContent=file.split(/[\\/]/).pop();link.title=file;link.onclick=e=>{e.preventDefault();e.stopPropagation();vscode.postMessage({type:'openToolFile',id:t.id});};text.append(link);
+    if(['proposed','error','denied'].includes(t.state))text.append(document.createTextNode(' · '+({proposed:'Approval needed',error:'Failed',denied:'Denied'})[t.state]));
+  }
+  return summary;
 }
 function changeCard(summary,existing){
   formatted(last);last=undefined;
@@ -125,10 +140,10 @@ function renderTool(t){
   formatted(last);last=undefined;
   const shell=['bash','pwsh','shell','exec_command'].includes(t.name);
   let card=cards.get(t.id);if(!card){
-    card=document.createElement('details');card.className='tool';if(shell)card.dataset.shell='true';cards.set(t.id,card);
+    card=document.createElement('details');card.className='tool';card.dataset.action=actionKind(t);if(shell)card.dataset.shell='true';cards.set(t.id,card);
     const previous=history.lastElementChild;
-    if(shell&&previous?.classList.contains('command-group'))previous.append(card);
-    else if(shell&&previous?.dataset.shell==='true'){
+    if(previous?.classList.contains('command-group'))previous.append(card);
+    else if(previous?.classList.contains('tool')){
       const group=document.createElement('details');group.className='command-group';group.append(activitySummary('Running commands','command'));history.insertBefore(group,previous);group.append(previous,card);
     }else history.append(card);
   }
@@ -146,7 +161,10 @@ function renderTool(t){
     const group=card.parentElement;
     if(group?.classList.contains('command-group')){
       const children=Array.from(group.children).filter(n=>n.classList.contains('tool'));
-      group.querySelector('summary .activity-label').textContent=children.some(n=>['running','proposed'].includes(n.dataset.state))?'Running commands':'Ran commands';
+      const labels={read:['Reading files','Read files'],write:['Editing files','Edited files'],delete:['Deleting files','Deleted files'],command:['Running commands','Ran commands'],search:['Searching files','Searched files'],other:['Using tools','Used tools']};
+      const kinds=[...new Set(children.map(n=>n.dataset.action||'other'))];
+      const label=kinds.map((kind,i)=>{const active=children.some(n=>n.dataset.action===kind&&['running','proposed'].includes(n.dataset.state));const text=labels[kind][active?0:1];return i?text.toLowerCase():text;}).join(', ');
+      const heading=group.querySelector('summary');heading.querySelector('.activity-label').textContent=label;heading.title=label;
       if(children.some(n=>['proposed','error','denied'].includes(n.dataset.state)))group.open=true;
       if(['proposed','error','denied'].includes(t.state))card.open=true;
     }

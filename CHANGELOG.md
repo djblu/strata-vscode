@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.12 — 2026-10-26
+
+- Group consecutive mixed actions with headers describing reads, edits, deletions, searches and commands.
+- Link file-action filenames to the VS Code editor using recorded tool paths.
+- Update group labels during execution and restore grouping from saved chats.
+
 ## 0.1.11 — 2026-10-26
 
 - Add rounded Shell panels with copyable command text and scrollable output.

@@ -341,6 +341,15 @@ function activate(context) {
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,turnStartedAt,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
       else if (m.type === 'profiles') await chooseProfile();
+      else if(m.type==='openToolFile'){
+        if(typeof m.id!=='string')throw Error('Invalid file action');
+        const tool=transcript.filter(e=>e.role==='tool').map(e=>JSON.parse(e.text)).findLast(t=>t.id===m.id);
+        const file=tool?.args?.file_path??tool?.args?.path;
+        if(typeof file!=='string'||!file||file.includes('\0'))throw Error('No file path recorded for this action');
+        const root=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;if(!root)throw Error('Open the original workspace first');
+        const uri=vscode.Uri.file(path.resolve(root,file));
+        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri),{preview:true});
+      }
       else if(m.type==='viewChanges'||m.type==='undoChanges')await changeAction(m);
       else if (m.type === 'connect') await connect();
       else if (m.type === 'openLink') {

@@ -70,3 +70,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 .shell-header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;color:var(--vscode-descriptionForeground);font-size:12px}
 .tool .shell-header button{margin:0;padding:3px 6px;background:transparent;font-size:11px}
 .tool .shell-panel pre{margin:0;padding:8px 10px 12px;max-height:280px;overflow:auto;white-space:pre;overflow-wrap:normal;line-height:1.6;font:12px/1.6 var(--vscode-editor-font-family)}
+
+.tool summary .activity-file{display:inline;margin:0;padding:0;background:transparent;color:var(--vscode-textLink-foreground);font:inherit;border-radius:2px;text-decoration:none}.tool summary .activity-file:hover{text-decoration:underline;color:var(--vscode-textLink-activeForeground)}

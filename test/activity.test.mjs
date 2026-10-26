@@ -12,8 +12,8 @@ test('compact activity updates labels, retains expanded details and keeps approv
  const card=dom.window.document.querySelector('.tool');assert.equal(card.open,false);assert.equal(card.querySelector('.activity-label').textContent,'Reading chat.js');assert.ok(card.querySelector('svg'));
  card.open=true;emit({id:'read1',name:'read',state:'done',args:{file_path:'/workspace/chat.js'},result:'file contents'});assert.equal(card.open,true);assert.equal(card.querySelector('.activity-label').textContent,'Read chat.js');assert.match(card.querySelector('pre').textContent,/file contents/);
  emit({id:'write1',name:'write',state:'proposed',args:{file_path:'test.js',content:'hello'}});
- const pending=dom.window.document.querySelectorAll('.tool')[1];assert.equal(pending.open,true);assert.match(pending.querySelector('summary').textContent,/Approval needed/);pending.querySelector('button').click();assert.equal(sent.at(-1).decision,'approve');
- emit({id:'write1',name:'write',state:'done',args:{file_path:'test.js'}});assert.equal(pending.open,false);assert.equal(pending.querySelector('button'),null);
+ const pending=dom.window.document.querySelectorAll('.tool')[1];assert.equal(pending.open,true);assert.match(pending.querySelector('summary').textContent,/Approval needed/);pending.querySelector(':scope > button').click();assert.equal(sent.at(-1).decision,'approve');
+ emit({id:'write1',name:'write',state:'done',args:{file_path:'test.js'}});assert.equal(pending.open,false);assert.equal(pending.querySelector(':scope > button'),null);
  dom.window.close();
 });
 
@@ -82,4 +82,15 @@ test('shell panels group consecutive commands, preserve approvals, copy literal 
  emit({type:'tool',tool:b});const group=dom.window.document.querySelector('.command-group');assert.equal(group.querySelectorAll('.tool').length,2);assert.equal(group.open,true);assert.equal(group.querySelector('.activity-label').textContent,'Running commands');emit({type:'tool',tool:{...b,state:'done',result:'today'}});assert.equal(group.querySelector('.activity-label').textContent,'Ran commands');
  emit({type:'entry',role:'assistant',text:'Next step'});emit({type:'tool',tool:{...a,id:'c'}});assert.equal(group.querySelectorAll('.tool').length,2);
  emit({type:'restore',mode:'manual',busy:false,transcript:[a,{...b,state:'done'}].map(tool=>({role:'tool',text:JSON.stringify(tool)}))});assert.equal(dom.window.document.querySelectorAll('.command-group .shell-panel').length,2);dom.window.close();
+});
+
+test('mixed actions update the group heading and file links route by recorded tool id',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});const sent=[];dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));
+ const tools=[{id:'r',name:'read',state:'done',args:{file_path:'/workspace/index.html'}},{id:'b',name:'bash',state:'done',args:{command:'ls'}},{id:'e',name:'edit',state:'running',args:{path:'/workspace/index.html'}},{id:'d',name:'delete_file',state:'done',args:{path:'/workspace/old.html'}}];
+ tools.forEach(tool=>emit({type:'tool',tool}));const group=dom.window.document.querySelector('.command-group');assert.equal(group.querySelector('.activity-label').textContent,'Read files, ran commands, editing files, deleted files');
+ emit({type:'tool',tool:{...tools[2],state:'done'}});assert.equal(group.querySelector('.activity-label').textContent,'Read files, ran commands, edited files, deleted files');
+ const link=group.querySelector('.activity-file');assert.equal(link.textContent,'index.html');link.click();assert.equal(sent.at(-1).type,'openToolFile');assert.equal(sent.at(-1).id,'r');assert.equal(group.open,false);
+ emit({type:'entry',role:'assistant',text:'Now verify'});emit({type:'tool',tool:{...tools[0],id:'r2'}});assert.equal(group.querySelectorAll('.tool').length,4);
+ emit({type:'restore',mode:'manual',busy:false,transcript:tools.map(t=>({role:'tool',text:JSON.stringify({...t,state:'done'})}))});assert.equal(dom.window.document.querySelector('.command-group .activity-label').textContent,'Read files, ran commands, edited files, deleted files');dom.window.close();
 });
