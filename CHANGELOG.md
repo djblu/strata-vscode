@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6 — 2026-10-26
+
+- Fold completed turn activity into a Worked for duration dropdown above the final response.
+- Save tool activity and elapsed duration with new chat turns; keep final answers and file-change cards visible.
+
 ## 0.1.5 — 2026-10-26
 
 - Show reasoning and tool disclosure chevrons on hover or keyboard focus, pointing right when collapsed and down when expanded.

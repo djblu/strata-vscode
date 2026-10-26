@@ -22,7 +22,7 @@ function activate(context) {
   let manualCompaction=false;
   const changeStore=new (require('./change-store.cjs').ChangeStore)(path.join(context.globalStorageUri.fsPath,'changes'));
   let turnSnapshot,finishing,changeTimer,changeQueue=Promise.resolve();
-  let reportedChanges=new Set();
+  let reportedChanges=new Set(),turnStartedAt;
   function publishChanges(summary){
     if(!summary)return;
     const entry=transcript.find(e=>e.role==='changes'&&JSON.parse(e.text).id===summary.id);
@@ -47,7 +47,7 @@ function activate(context) {
         if(missing.length)add('notice','Some reported file updates have no captured diff (outside the workspace, excluded, unchanged, or scan limits): '+missing.join(', '));
         else if(!snapshot.saved&&snapshot.partial)add('notice','No file diff captured. The workspace checkpoint reached its scan limits; open a smaller project folder for reliable change tracking.');}}
       catch(e){add('notice','File change summary unavailable: '+e.message);}
-      finally{manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});post({type:'status',text:'Ready'});persist();}
+      finally{if(turnStartedAt!==undefined){add('turn-summary',JSON.stringify({durationMs:Math.max(0,Date.now()-turnStartedAt)}));turnStartedAt=undefined;}manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});post({type:'status',text:'Ready'});persist();}
     })();
     try{await finishing;}finally{finishing=undefined;}
   }
@@ -250,7 +250,11 @@ function activate(context) {
       const t = f.tool;
       if (!t) return;
       if (t.state === 'proposed') pending.set(t.id, t); else pending.delete(t.id);
-      post({type: 'tool', tool: t});
+      const first=transcript.findLastIndex(e=>e.role==='user');
+      const savedTool=transcript.slice(first+1).find(e=>e.role==='tool'&&JSON.parse(e.text).id===t.id);
+      const toolText=JSON.stringify({...t,result:t.result?String(t.result).slice(0,16000):undefined});
+      if(savedTool)savedTool.text=toolText;else transcript.push({role:'tool',text:toolText,timestamp:Date.now()});
+      persist();post({type: 'tool', tool: t});
     } else if (f.type === 'error') add('error', f.message || f.text || JSON.stringify(f));
     else if (f.type === 'status') post({type: 'status', text: f.text || 'Ready', manualCompaction:f.manual===true});
     else if (f.type === 'context') { /* Displayed in the composer, independently of turn status. */ }
@@ -389,8 +393,8 @@ function activate(context) {
         try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.');
           reportedChanges=new Set();
           if(m.text.trim()!=='/compact'){post({type:'status',text:'Saving workspace checkpoint…'});try{turnSnapshot=await changeStore.scan(vscode.workspace.workspaceFolders[0].uri.fsPath,dirtyPaths());}catch(e){add('notice','Undo checkpoint unavailable: '+e.message);}}
-          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
-        catch (e) {turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}
+          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); turnStartedAt=Date.now();write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
+        catch (e) {turnStartedAt=undefined;turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}
       } else if (m.type === 'stop') {write({type:'stop',chatId}); post({type:'status',text:'Stopping…'});}
       else if (m.type === 'approve') {
         if (!pending.has(m.callId) || !['approve','deny'].includes(m.decision)) throw Error('Approval is no longer pending');

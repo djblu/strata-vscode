@@ -6,6 +6,7 @@ class Element {
  constructor(){this.children=[];this.textContent='';this.value='';this.dataset={};this.classList={toggle(){}};}
  append(...nodes){for(const n of nodes){n.parent=this;this.children.push(n);}}
  replaceChildren(){this.children=[];}
+ setAttribute(name,value){this[name]=value;}
  addEventListener(){}
  remove(){this.parent.children.splice(this.parent.children.indexOf(this),1);}
  querySelectorAll(){return this.children.filter(x=>x.tag==='button');}

@@ -117,7 +117,33 @@ function changeCard(summary,existing){
   const note=document.createElement('p');note.className='change-note';note.textContent='Workspace changes during this turn'+(summary.partial?' · Limited to captured text files':'');note.title='Includes eligible saved workspace files, including changes by other programs during the turn. Does not undo installs, commands or service changes.';box.append(note);
   if(!existing)history.append(box);scroll();return box;
 }
+function renderTool(t){
+  formatted(last);last=undefined;
+  let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
+    if(t.state==='proposed')card.open=true;
+    else if(card.dataset?.state==='proposed')card.open=false;
+    card.dataset.state=t.state;
+    card.replaceChildren();const title=toolSummary(t);
+    const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');card.append(title,preview);
+    if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
+}
+function turnSummary(data){
+  formatted(last);last=undefined;
+  const nodes=Array.from(history.children);let start=nodes.findLastIndex(n=>n.classList.contains('user'))+1;
+  if(nodes.slice(start).some(n=>n.classList.contains('turn-work')))return;
+  const work=nodes.slice(start),final=work.findLast(n=>n.classList.contains('assistant'));
+  const details=document.createElement('details');details.className='turn-work';
+  const seconds=Math.max(0,Math.round(Number(data.durationMs)/1000)||0),minutes=Math.floor(seconds/60);
+  const title=activitySummary('Worked for '+(minutes?`${minutes}m ${seconds%60}s`:`${seconds}s`));title.querySelector('.activity-icon').remove();
+  details.append(title);const content=document.createElement('div');content.className='turn-work-content';details.append(content);
+  const activity=work.filter(n=>n!==final&&!n.classList.contains('change-summary')&&!n.classList.contains('error'));
+  if(work[0])history.insertBefore(details,work[0]);else history.append(details);
+  for(const node of activity)content.append(node);
+  scroll();
+}
 function entry(role,text,timestamp) {
+  if(role==='turn-summary'){try{turnSummary(JSON.parse(text));}catch{}return;}
+  if(role==='tool'){try{renderTool(JSON.parse(text));}catch{}return;}
   if(role==='changes'){try{changeCard(JSON.parse(text));}catch{}return;}
   formatted(last);
   const reasoning=role==='reasoning';
@@ -179,13 +205,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='sendAccepted'){attachments=attachments.filter(a=>!(m.attachmentIds||[]).includes(a.id));drawAttachments();if($('prompt').value===m.text)$('prompt').value='';}
   else if(m.type==='selection'){$('prompt').value+=m.text;$('prompt').focus();}
   else if(m.type==='tool'){
-    const t=m.tool;let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
-    if(t.state==='proposed')card.open=true;
-    else if(card.dataset?.state==='proposed')card.open=false;
-    card.dataset.state=t.state;
-    card.replaceChildren();const title=toolSummary(t);
-    const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');card.append(title,preview);
-    if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
+    renderTool(m.tool);
     scroll();
   }
 });

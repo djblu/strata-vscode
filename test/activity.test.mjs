@@ -16,3 +16,17 @@ test('compact activity updates labels, retains expanded details and keeps approv
  emit({id:'write1',name:'write',state:'done',args:{file_path:'test.js'}});assert.equal(pending.open,false);assert.equal(pending.querySelector('button'),null);
  dom.window.close();
 });
+
+test('completed turns fold activity above the final answer and restore duration and tools',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});
+ dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));
+ const transcript=[{role:'user',text:'Make a clock'},{role:'assistant',text:'I will read the file.'},{role:'tool',text:JSON.stringify({id:'r',name:'read',state:'done',args:{path:'clock.html'},result:'source'})},{role:'reasoning',text:'Consider the timer.'},{role:'assistant',text:'Added the clock.'},{role:'turn-summary',text:JSON.stringify({durationMs:81000})}];
+ emit({type:'restore',mode:'manual',busy:false,transcript});
+ const history=dom.window.document.getElementById('history'),group=history.querySelector('.turn-work');
+ assert.equal(group.open,false);assert.equal(group.querySelector('.activity-label').textContent,'Worked for 1m 21s');
+ assert.match(group.textContent,/I will read the file/);assert.match(group.textContent,/Read clock.html/);assert.match(group.textContent,/Consider the timer/);
+ assert.equal(history.lastElementChild.textContent,'assistantAdded the clock.');assert.ok(!group.textContent.includes('Added the clock.'));
+ group.open=true;assert.ok(group.querySelector('.tool'));emit({type:'entry',role:'user',text:'Thanks'});emit({type:'entry',role:'assistant',text:'You are welcome'});emit({type:'entry',role:'turn-summary',text:JSON.stringify({durationMs:3000})});
+ assert.equal(history.querySelectorAll('.turn-work').length,2);assert.equal(history.querySelectorAll('.turn-work')[1].querySelector('.activity-label').textContent,'Worked for 3s');dom.window.close();
+});

@@ -50,3 +50,10 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 .change-stats{white-space:nowrap;font-size:12px}.change-stats span+span{margin-left:6px}.lines-added{color:var(--vscode-gitDecoration-addedResourceForeground,#69c98c)}.lines-removed{color:var(--vscode-gitDecoration-deletedResourceForeground,#ee8466)}
 .change-summary .show-changes{display:block;border:0;padding:12px 16px}.change-note{font-size:11px;margin:6px 16px 12px;opacity:.8}
 @media(max-width:360px){.change-header{flex-wrap:wrap}.change-header>div{flex-basis:100%}}
+
+/* Completed turn activity folds away above the final response. */
+.turn-work{margin:8px 0 18px;flex-shrink:0;min-width:0;color:var(--vscode-descriptionForeground)}
+.turn-work>summary.activity-summary{display:flex;align-items:center;gap:7px;padding:4px 0 10px;list-style:none;cursor:pointer;border-bottom:1px solid var(--vscode-panel-border);font-weight:400;font-size:12px}
+.turn-work-content{padding-top:16px}.turn-work-content>.tool,.turn-work-content>.reasoning{border:0;background:transparent;border-radius:0;margin:2px 0;color:var(--vscode-descriptionForeground)}
+.turn-work-content>.entry{line-height:1.6}.turn-work-content>.assistant{color:var(--vscode-foreground)}
+.turn-work-content>.tool>pre,.turn-work-content>.reasoning>.content{margin:5px 0 9px 23px;padding:7px 10px;border-left:1px solid var(--vscode-panel-border)}
