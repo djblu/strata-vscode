@@ -117,7 +117,10 @@ function changeCard(summary,existing){
   const note=document.createElement('p');note.className='change-note';note.textContent='Workspace changes during this turn'+(summary.partial?' · Limited to captured text files':'');note.title='Includes eligible saved workspace files, including changes by other programs during the turn. Does not undo installs, commands or service changes.';box.append(note);
   if(!existing)history.append(box);scroll();return box;
 }
+let thinkingMarker;
+function clearThinking(){if(thinkingMarker){thinkingMarker.remove();thinkingMarker=undefined;}if(last?.role==='reasoning')last=undefined;}
 function renderTool(t){
+  clearThinking();
   formatted(last);last=undefined;
   let card=cards.get(t.id);if(!card){card=document.createElement('details');card.className='tool';cards.set(t.id,card);history.append(card);}
     if(t.state==='proposed')card.open=true;
@@ -153,7 +156,8 @@ function turnSummary(data){
   scroll();
 }
 function entry(role,text,timestamp) {
-  if(role==='reasoning'){formatted(last);if(last?.role==='reasoning')return;const box=document.createElement('div');box.className='entry thinking-marker';box.textContent='Thinking…';history.append(box);last={role,body:box,text:'Thinking…'};scroll();return;}
+  if(role==='reasoning'){formatted(last);if(last?.role==='reasoning')return;const box=document.createElement('div');box.className='entry thinking-marker';box.textContent='Thinking…';thinkingMarker=box;history.append(box);last={role,body:box,text:'Thinking…'};scroll();return;}
+  clearThinking();
   if(role==='turn-summary'){try{turnSummary(JSON.parse(text));}catch{}return;}
   if(role==='tool'){try{renderTool(JSON.parse(text));}catch{}return;}
   if(role==='changes'){try{changeCard(JSON.parse(text));}catch{}return;}
@@ -181,7 +185,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(bufferRole==='reasoning'){entry('reasoning','');buffer='';return;}if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
-  if(!value)stopWorkTimer();
+  if(!value){stopWorkTimer();clearThinking();}
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
@@ -199,11 +203,11 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
   else if(m.type==='turnStarted')startWorkTimer(m.startedAt);
-  else if(m.type==='restore'){stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
+  else if(m.type==='restore'){clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='changeUpdated'){const card=Array.from(history.children).find(e=>e.dataset?.changeId===m.summary.id);if(card)changeCard(m.summary,card);}
   else if(m.type==='chunk'&&m.role==='reasoning'){flush();entry('reasoning','');}
-  else if(m.type==='chunk'){if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
+  else if(m.type==='chunk'){clearThinking();if(bufferRole!==m.role)flush();bufferRole=m.role;buffer+=m.text;if(!scheduled)scheduled=setTimeout(flush,50);}
   else if(m.type==='busy')busy(m.value);
   else if(m.type==='contextInfo'){
     const known=Number.isFinite(m.used)&&Number.isFinite(m.max)&&m.max>0;

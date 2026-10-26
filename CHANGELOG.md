@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.8 — 2026-10-26
+
+- Remove the temporary Thinking indicator when commentary or tools begin, or the turn ends.
+- Omit old Thinking markers from completed restored chats while preserving progress commentary.
+
 ## 0.1.7 — 2026-10-26
 
 - Show Thinking instead of raw reasoning text, including restored older chats, without changing harness context.

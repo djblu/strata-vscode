@@ -25,7 +25,7 @@ test('completed turns fold activity above the final answer and restore duration 
  emit({type:'restore',mode:'manual',busy:false,transcript});
  const history=dom.window.document.getElementById('history'),group=history.querySelector('.turn-work');
  assert.equal(group.open,false);assert.equal(group.querySelector('.activity-label').textContent,'Worked for 1min 21s');
- assert.match(group.textContent,/I will read the file/);assert.match(group.textContent,/Read clock.html/);assert.doesNotMatch(group.textContent,/Consider the timer/);assert.match(group.textContent,/Thinking/);
+ assert.match(group.textContent,/I will read the file/);assert.match(group.textContent,/Read clock.html/);assert.doesNotMatch(group.textContent,/Consider the timer/);assert.doesNotMatch(group.textContent,/Thinking/);
  assert.equal(history.lastElementChild.textContent,'assistantAdded the clock.');assert.ok(!group.textContent.includes('Added the clock.'));
  group.open=true;assert.ok(group.querySelector('.tool'));emit({type:'entry',role:'user',text:'Thanks'});emit({type:'entry',role:'assistant',text:'You are welcome'});emit({type:'entry',role:'turn-summary',text:JSON.stringify({durationMs:3000})});
  assert.equal(history.querySelectorAll('.turn-work').length,2);assert.equal(history.querySelectorAll('.turn-work')[1].querySelector('.activity-label').textContent,'Worked for 3s');dom.window.close();
@@ -52,6 +52,17 @@ test('reasoning is never rendered or copied into chat DOM while commentary and t
  const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));
  emit({type:'chunk',role:'reasoning',text:'SECRET reasoning'});emit({type:'chunk',role:'reasoning',text:' more secret'});
  emit({type:'entry',role:'assistant',text:'I will inspect the file.'});emit({type:'tool',tool:{id:'read',name:'read',state:'done',args:{path:'game.html'}}});emit({type:'entry',role:'assistant',text:'I found the problem.'});
- const history=dom.window.document.getElementById('history');assert.doesNotMatch(history.innerHTML,/SECRET|secret/);assert.equal(history.querySelectorAll('.thinking-marker').length,1);
- assert.deepEqual(Array.from(history.children).map(n=>n.className),['entry thinking-marker','entry assistant','tool','entry assistant']);dom.window.close();
+ const history=dom.window.document.getElementById('history');assert.doesNotMatch(history.innerHTML,/SECRET|secret/);assert.equal(history.querySelectorAll('.thinking-marker').length,0);
+ assert.deepEqual(Array.from(history.children).map(n=>n.className),['entry assistant','tool','entry assistant']);dom.window.close();
+});
+
+test('thinking disappears on commentary, tool activity, idle and completed restoration',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data})),marker=()=>dom.window.document.querySelector('.thinking-marker');
+ emit({type:'entry',role:'reasoning',text:''});assert.ok(marker());emit({type:'chunk',role:'assistant',text:'Progress update'});assert.equal(marker(),null);
+ emit({type:'status',text:'Working'});assert.match(dom.window.document.getElementById('history').textContent,/Progress update/);
+ emit({type:'entry',role:'reasoning',text:''});assert.ok(marker());emit({type:'tool',tool:{id:'r',name:'read',state:'running',args:{path:'game.html'}}});assert.equal(marker(),null);
+ emit({type:'entry',role:'reasoning',text:''});emit({type:'busy',value:false});assert.equal(marker(),null);
+ emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'reasoning',text:'old private text'}]});assert.equal(marker(),null);
+ emit({type:'restore',mode:'manual',busy:true,transcript:[{role:'reasoning',text:''}]});assert.ok(marker());dom.window.close();
 });
