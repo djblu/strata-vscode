@@ -2,7 +2,7 @@
   "name": "strata-harness",
   "displayName": "Strata Harness",
   "description": "Use the Strata coding harness in a VS Code sidebar.",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "publisher": "djblu",
   "license": "UNLICENSED",
   "private": true,

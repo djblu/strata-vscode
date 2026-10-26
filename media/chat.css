@@ -88,3 +88,9 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 .turn-work-content>:is(.assistant,.tool,.command-group)+:is(.assistant,.tool,.command-group){margin-top:18px}
 .command-group>.tool{margin-top:2px;margin-bottom:2px}
 .content>:first-child{margin-top:0}.content>:last-child{margin-bottom:0}
+
+/* Keep turn boundaries balanced without stacking margins around hover controls. */
+#history>.entry.user{margin-top:0;margin-bottom:8px}
+#history>*+.entry.user{margin-top:24px}
+#history>:has(+.entry.user){margin-bottom:0}
+#history>.entry.user+*{margin-top:0}

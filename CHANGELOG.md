@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.18 — 2026-10-26
+
+- Restore consistent space before user messages and reduce stacked margins before the following turn, retaining stable space for hover controls.
+
 ## 0.1.17 — 2026-10-26
 
 - Use consistent spacing between commentary and action groups in live and completed turns.
