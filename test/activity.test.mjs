@@ -121,3 +121,13 @@ test('completed turn folds automatically opened failure groups and restores them
  emit({type:'restore',busy:false,mode:'manual',transcript:[{role:'user',text:'Edit page'},...[failed,read].map(t=>({role:'tool',text:JSON.stringify(t)})),{role:'assistant',text:'Finished'},{role:'turn-summary',text:JSON.stringify({durationMs:22000})}]});
  outer=dom.window.document.querySelector('.turn-work');outer.open=true;assert.equal(outer.querySelector('.command-group').open,false);outer.querySelector('.command-group').open=true;assert.equal(outer.querySelector('.command-group').open,true);dom.window.close();
 });
+
+test('activity groups span reasoning, whitespace and change cards but stop at actual commentary',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data})),tool=id=>({id,name:'edit',state:'done',args:{path:'index.html'}});
+ const checkpoint={id:'checkpoint',files:[{path:'index.html',added:1,removed:0,undoable:true}],added:1,removed:0};
+ const transcript=[{role:'user',text:'Edit page'},{role:'assistant',text:'Making changes'},{role:'tool',text:JSON.stringify(tool('a'))},{role:'reasoning',text:''},{role:'changes',text:JSON.stringify(checkpoint)},{role:'assistant',text:'\n\n'},{role:'tool',text:JSON.stringify(tool('b'))},{role:'tool',text:JSON.stringify(tool('c'))}];
+ emit({type:'restore',mode:'manual',busy:false,transcript});let groups=dom.window.document.querySelectorAll('.command-group');assert.equal(groups.length,1);assert.equal(groups[0].querySelectorAll('.tool').length,3);
+ emit({type:'chunk',role:'assistant',text:'\n'});emit({type:'tool',tool:tool('d')});assert.equal(groups[0].querySelectorAll('.tool').length,4);
+ emit({type:'chunk',role:'assistant',text:'Now verify'});emit({type:'tool',tool:{...tool('e'),state:'proposed'}});emit({type:'tool',tool:tool('e')});emit({type:'tool',tool:tool('f')});groups=dom.window.document.querySelectorAll('.command-group');assert.equal(groups.length,2);assert.equal(groups[1].querySelectorAll('.tool').length,2);dom.window.close();
+});

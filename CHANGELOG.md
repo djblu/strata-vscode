@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.20 — 2026-10-26
+
+- Group actions by actual commentary boundaries rather than adjacent page elements. Hidden reasoning, whitespace and change cards no longer split a group.
+
 ## 0.1.19 — 2026-10-26
 
 - Collapse nested activity groups and tool details when a turn completes, including groups opened automatically for failures. Saved chats restore the same collapsed state.

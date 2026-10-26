@@ -132,24 +132,26 @@ function changeCard(summary,existing){
   const note=document.createElement('p');note.className='change-note';note.textContent='Workspace changes during this turn'+(summary.partial?' · Limited to captured text files':'');note.title='Includes eligible saved workspace files, including changes by other programs during the turn. Does not undo installs, commands or service changes.';box.append(note);
   if(!existing)history.append(box);scroll();return box;
 }
-let thinkingMarker;
+let thinkingMarker,activityTail;
 function clearThinking(){if(thinkingMarker){thinkingMarker.remove();thinkingMarker=undefined;}if(last?.role==='reasoning')last=undefined;}
 function renderTool(t){
   clearThinking();
   if(t.name==='present'&&!['proposed','error','denied'].includes(t.state)){const old=cards.get(t.id);if(old){old.remove();cards.delete(t.id);}return;}
+  if(last?.role==='assistant'&&!last.text.trim()){if(last.formatTimer)clearTimeout(last.formatTimer);last.body.parentElement?.remove();}
   formatted(last);last=undefined;
   const shell=['bash','pwsh','shell','exec_command'].includes(t.name);
   const flat=['read','write'].includes(actionKind(t))&&!['proposed','error','denied'].includes(t.state);
   const tag=flat?'div':'details';
   let card=cards.get(t.id);
-  if(card&&(card.tagName||card.tag).toLowerCase()!==tag){const replacement=document.createElement(tag);replacement.className=card.className;Object.assign(replacement.dataset,card.dataset);card.replaceWith(replacement);card=replacement;cards.set(t.id,card);}
+  if(card&&(card.tagName||card.tag).toLowerCase()!==tag){const replacement=document.createElement(tag);replacement.className=card.className;Object.assign(replacement.dataset,card.dataset);card.replaceWith(replacement);if(activityTail===card)activityTail=replacement;card=replacement;cards.set(t.id,card);}
   if(!card){
     card=document.createElement(tag);card.className='tool';card.dataset.action=actionKind(t);if(shell)card.dataset.shell='true';cards.set(t.id,card);
-    const previous=history.lastElementChild;
+    const previous=activityTail;
     if(previous?.classList.contains('command-group'))previous.append(card);
     else if(previous?.classList.contains('tool')){
       const group=document.createElement('details');group.className='command-group';group.append(activitySummary('Running commands','command'));history.insertBefore(group,previous);group.append(previous,card);
     }else history.append(card);
+    activityTail=card.parentElement?.classList.contains('command-group')?card.parentElement:card;
   }
     if(t.state==='proposed')card.open=true;
     else if(card.dataset?.state==='proposed')card.open=false;
@@ -201,6 +203,7 @@ function startWorkTimer(startedAt){
   const tick=()=>{label.textContent='Working for '+workDuration(Date.now()-startedAt);workTimer=setTimeout(tick,1000);};tick();
 }
 function turnSummary(data){
+  activityTail=undefined;
   stopWorkTimer();
   formatted(last);last=undefined;
   const nodes=Array.from(history.children);let start=nodes.findLastIndex(n=>n.classList.contains('user'))+1;
@@ -216,6 +219,7 @@ function turnSummary(data){
   scroll();
 }
 function entry(role,text,timestamp) {
+  if(role==='user'||role==='assistant'&&text.trim())activityTail=undefined;
   if(role==='reasoning'){formatted(last);if(last?.role==='reasoning')return;const box=document.createElement('div');box.className='entry thinking-marker';box.textContent='Thinking…';thinkingMarker=box;history.append(box);last={role,body:box,text:'Thinking…'};scroll();return;}
   clearThinking();
   if(role==='turn-summary'){try{turnSummary(JSON.parse(text));}catch{}return;}
@@ -243,7 +247,7 @@ function entry(role,text,timestamp) {
   while(history.children.length>120)history.firstChild.remove();
   scroll();
 }
-function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(bufferRole==='reasoning'){entry('reasoning','');buffer='';return;}if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
+function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(bufferRole==='reasoning'){entry('reasoning','');buffer='';return;}if(bufferRole==='assistant'&&buffer.trim())activityTail=undefined;if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
   if(!value){stopWorkTimer();clearThinking();for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);}
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
@@ -263,7 +267,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
   else if(m.type==='turnStarted')startWorkTimer(m.startedAt);
-  else if(m.type==='restore'){clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
+  else if(m.type==='restore'){activityTail=undefined;clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='changeUpdated'){const card=Array.from(history.children).find(e=>e.dataset?.changeId===m.summary.id);if(card)changeCard(m.summary,card);}
   else if(m.type==='chunk'&&m.role==='reasoning'){flush();entry('reasoning','');}
