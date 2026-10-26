@@ -167,6 +167,10 @@ function renderTool(t){
       }
     }
     const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');
+    if(['read','write','delete'].includes(actionKind(t))&&t.state==='error'){
+      const result=t.result==null?'':String(t.result),details=/(?:^|\n)Details:\s*([\s\S]*)/.exec(result);
+      preview.textContent=(details?'Details: '+details[1]:result||'No error details were provided.').slice(0,16000);
+    }
     if(shell){
       const panel=document.createElement('div');panel.className='shell-panel';const header=document.createElement('div');header.className='shell-header';const label=document.createElement('span');label.textContent='Shell';
       const command=String(t.args?.command??t.args?.cmd??t.preview??'');preview.textContent=(command?'$ '+command+'\n':'')+(t.result==null?'':String(t.result).slice(0,16000));

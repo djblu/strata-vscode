@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.16 — 2026-10-26
+
+- Show only error details in failed file-action dropdowns, omitting tool descriptions, previews and edit arguments.
+
 ## 0.1.15 — 2026-10-26
 
 - Display routine read/edit actions as plain filename rows without dropdowns. Keep approval requests and failures expandable.

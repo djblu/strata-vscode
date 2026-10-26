@@ -103,3 +103,11 @@ test('command timer counts up and restores the frozen completed duration',async(
  const completed={...tool,state:'done',commandDurationMs:62000};emit({type:'tool',tool:completed});assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Ran command for 1min 2s');
  now=999999;emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'tool',text:JSON.stringify(completed)}]});assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Ran command for 1min 2s');dom.window.close();
 });
+
+test('failed file actions show only error details without tool arguments or descriptive boilerplate',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=tool=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data:{type:'tool',tool}}));
+ const tool={id:'e',name:'edit',state:'error',effect:'Changes a file in the workspace.',preview:'/workspace/index.html',args:{file_path:'/workspace/index.html',old_string:'OLD_PAYLOAD',new_string:'NEW_PAYLOAD'},result:'The file could not be changed.\n\nDetails: cannot modify index.html: file has not been read — read the file, then retry'};
+ emit(tool);const card=dom.window.document.querySelector('.tool');assert.equal(card.querySelector('pre').textContent,'Details: cannot modify index.html: file has not been read — read the file, then retry');assert.doesNotMatch(card.textContent,/OLD_PAYLOAD|NEW_PAYLOAD|Changes a file|The file could not be changed/);
+ emit({...tool,result:'Permission denied'});assert.equal(card.querySelector('pre').textContent,'Permission denied');dom.window.close();
+});
