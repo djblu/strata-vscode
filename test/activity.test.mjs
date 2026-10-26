@@ -94,14 +94,14 @@ test('mixed actions update the group heading and file links route by recorded to
  emit({type:'entry',role:'assistant',text:'Now verify'});emit({type:'tool',tool:{...tools[0],id:'r2'}});assert.equal(group.querySelectorAll('.tool').length,4);
  emit({type:'restore',mode:'manual',busy:false,transcript:tools.map(t=>({role:'tool',text:JSON.stringify({...t,state:'done'})}))});assert.equal(dom.window.document.querySelector('.command-group .activity-label').textContent,'Read files, ran commands, edited files, deleted files');dom.window.close();
 });
-test('command timer counts up and restores the frozen completed duration',async()=>{
+test('command timer counts up only while running and completion status survives restoration',async()=>{
  const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});let now=1000,tick;dom.window.Date.now=()=>now;dom.window.setTimeout=fn=>{tick=fn;return 1;};dom.window.clearTimeout=()=>{};dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
  const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));const tool={id:'timer',name:'bash',state:'running',commandStartedAt:1000,args:{command:'npm test'}};
  emit({type:'tool',tool});assert.equal(dom.window.document.querySelector('.tool .activity-label').textContent,'Running command npm test');
  now=2000;tick();assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Running command for 1s');
  now=63000;tick();assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Running command for 1min 2s');
- const completed={...tool,state:'done',commandDurationMs:62000};emit({type:'tool',tool:completed});assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Ran command for 1min 2s');
- now=999999;emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'tool',text:JSON.stringify(completed)}]});assert.equal(dom.window.document.querySelector('.command-elapsed').textContent,'Ran command for 1min 2s');dom.window.close();
+ const completed={...tool,state:'done',commandDurationMs:62000};emit({type:'tool',tool:completed});assert.equal(dom.window.document.querySelector('.command-elapsed'),null);assert.equal(dom.window.document.querySelector('.shell-outcome').textContent,'✓ Success');
+ now=999999;emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'tool',text:JSON.stringify(completed)}]});assert.equal(dom.window.document.querySelector('.command-elapsed'),null);assert.equal(dom.window.document.querySelector('.shell-outcome').textContent,'✓ Success');emit({type:'tool',tool:{...completed,state:'error'}});assert.equal(dom.window.document.querySelector('.command-elapsed'),null);assert.equal(dom.window.document.querySelector('.shell-outcome').textContent,'✕ Failed');emit({type:'tool',tool:{...tool,state:'running'}});assert.equal(dom.window.document.querySelector('.shell-outcome'),null);dom.window.close();
 });
 
 test('failed file actions show only error details without tool arguments or descriptive boilerplate',async()=>{

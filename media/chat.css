@@ -94,3 +94,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 #history>*+.entry.user{margin-top:24px}
 #history>:has(+.entry.user){margin-bottom:0}
 #history>.entry.user+*{margin-top:0}
+
+.shell-outcome{display:flex;justify-content:flex-end;padding:6px 12px 9px;font-size:12px;color:var(--vscode-descriptionForeground)}.shell-outcome[data-state="error"]{color:var(--vscode-errorForeground)}.tool .shell-panel pre{scrollbar-gutter:stable;scrollbar-width:thin}

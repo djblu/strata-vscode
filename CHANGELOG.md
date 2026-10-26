@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.21 — 2026-10-26
+
+- Show elapsed command timers only while running.
+- Add bottom-right Success/Failed outcomes to scrollable Shell panels; denied commands show Not run.
+
 ## 0.1.20 — 2026-10-26
 
 - Group actions by actual commentary boundaries rather than adjacent page elements. Hidden reasoning, whitespace and change cards no longer split a group.

@@ -162,10 +162,9 @@ function renderTool(t){
     if(shell){
       if(Number.isFinite(t.commandStartedAt))card.commandStartedAt=t.commandStartedAt;
       else if(t.state==='running'&&!Number.isFinite(card.commandStartedAt))card.commandStartedAt=Date.now();
-      if(Number.isFinite(card.commandStartedAt)){
+      if(t.state==='running'&&Number.isFinite(card.commandStartedAt)){
         const elapsed=document.createElement('span');elapsed.className='command-elapsed';title.append(elapsed);
-        const duration=Number.isFinite(t.commandDurationMs)?t.commandDurationMs:Math.max(0,Date.now()-card.commandStartedAt);
-        const tick=()=>{elapsed.textContent=(t.state==='running'?'Running command for ':t.state==='error'?'Command failed after ':'Ran command for ')+workDuration(t.state==='running'?Date.now()-card.commandStartedAt:duration);if(t.state==='running')card.commandTimer=setTimeout(tick,1000);};tick();
+        const tick=()=>{elapsed.textContent='Running command for '+workDuration(Date.now()-card.commandStartedAt);card.commandTimer=setTimeout(tick,1000);};tick();
       }
     }
     const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');
@@ -176,7 +175,9 @@ function renderTool(t){
     if(shell){
       const panel=document.createElement('div');panel.className='shell-panel';const header=document.createElement('div');header.className='shell-header';const label=document.createElement('span');label.textContent='Shell';
       const command=String(t.args?.command??t.args?.cmd??t.preview??'');preview.textContent=(command?'$ '+command+'\n':'')+(t.result==null?'':String(t.result).slice(0,16000));
-      const copy=document.createElement('button');copy.textContent='Copy';copy.title='Copy command and output';copy.onclick=()=>{const id=++copyId;copies.set(id,copy);copy.disabled=true;vscode.postMessage({type:'copyCode',id,text:preview.textContent});};header.append(label,copy);panel.append(header,preview);card.append(title,panel);
+      const copy=document.createElement('button');copy.textContent='Copy';copy.title='Copy command and output';copy.onclick=()=>{const id=++copyId;copies.set(id,copy);copy.disabled=true;vscode.postMessage({type:'copyCode',id,text:preview.textContent});};header.append(label,copy);panel.append(header,preview);
+      if(['done','error','denied'].includes(t.state)){const outcome=document.createElement('div');outcome.className='shell-outcome';outcome.dataset.state=t.state;outcome.textContent=t.state==='done'?'✓ Success':t.state==='error'?'✕ Failed':'⊘ Not run';panel.append(outcome);}
+      card.append(title,panel);
     }else if(flat)card.append(title);else card.append(title,preview);
     if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
     const group=card.parentElement;
