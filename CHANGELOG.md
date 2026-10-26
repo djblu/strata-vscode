@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.23 — 2026-10-26
+
+- Apply a shared responsive height limit to expanded turn, activity and tool dropdowns, with vertical scrolling for overflow. Short dropdowns remain compact.
+
 ## 0.1.22 — 2026-10-26
 
 - Tighten expanded activity rows to a uniform compact spacing, including linked read/edit filenames.
