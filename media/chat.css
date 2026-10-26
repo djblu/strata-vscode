@@ -96,3 +96,9 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 #history>.entry.user+*{margin-top:0}
 
 .shell-outcome{display:flex;justify-content:flex-end;padding:6px 12px 9px;font-size:12px;color:var(--vscode-descriptionForeground)}.shell-outcome[data-state="error"]{color:var(--vscode-errorForeground)}.tool .shell-panel pre{scrollbar-gutter:stable;scrollbar-width:thin}
+
+/* Compact, uniform rows inside expanded activity groups. */
+.command-group>.tool{margin:0}
+.command-group>.tool>.activity-summary{padding:4px 0;line-height:20px;min-height:28px}
+.command-group>.tool>.file-action-row .activity-label{display:inline-flex;align-items:baseline;gap:4px;line-height:20px}
+.command-group>.tool>.file-action-row .activity-file{line-height:20px;vertical-align:baseline}

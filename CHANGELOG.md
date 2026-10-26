@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.22 — 2026-10-26
+
+- Tighten expanded activity rows to a uniform compact spacing, including linked read/edit filenames.
+
 ## 0.1.21 — 2026-10-26
 
 - Show elapsed command timers only while running.
