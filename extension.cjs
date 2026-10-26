@@ -256,6 +256,11 @@ function activate(context) {
       if (t.state === 'proposed') pending.set(t.id, t); else pending.delete(t.id);
       const first=transcript.findLastIndex(e=>e.role==='user');
       const savedTool=transcript.slice(first+1).find(e=>e.role==='tool'&&JSON.parse(e.text).id===t.id);
+      const previousTool=savedTool?JSON.parse(savedTool.text):{};
+      if(Number.isFinite(previousTool.commandStartedAt))t.commandStartedAt=previousTool.commandStartedAt;
+      if(['bash','pwsh','shell','exec_command'].includes(t.name)&&t.state==='running'&&!Number.isFinite(t.commandStartedAt))t.commandStartedAt=Date.now();
+      if(Number.isFinite(previousTool.commandDurationMs))t.commandDurationMs=previousTool.commandDurationMs;
+      if(Number.isFinite(t.commandStartedAt)&&['done','error','denied'].includes(t.state)&&!Number.isFinite(t.commandDurationMs))t.commandDurationMs=Math.max(0,Date.now()-t.commandStartedAt);
       const toolText=JSON.stringify({...t,result:t.result?String(t.result).slice(0,16000):undefined});
       if(savedTool)savedTool.text=toolText;else transcript.push({role:'tool',text:toolText,timestamp:Date.now()});
       persist();post({type: 'tool', tool: t});

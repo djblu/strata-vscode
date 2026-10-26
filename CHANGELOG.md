@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.14 — 2026-10-26
+
+- Style Markdown tables with bold headers and horizontal separators without an outer box.
+- Show live elapsed time beneath running commands and persist the completed duration in saved chats.
+
 ## 0.1.13 — 2026-10-26
 
 - Use boxed terminal icons and activity-specific icons for mixed groups.

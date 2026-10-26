@@ -100,7 +100,7 @@ function toolSummary(t) {
   if(/search|grep|glob|find/i.test(name)){kind='search';verb=done?'Searched for':'Searching for';target=args.pattern||args.query||target;}
   else if(/read|view|list/i.test(name)){kind='read';verb=done?'Read':'Reading';target=args.file_path||args.path||target;}
   else if(/write|edit|patch/i.test(name)){kind='write';verb=done?'Edited':'Editing';target=args.file_path||args.path||target;}
-  else {target=args.command||args.cmd||target;}
+  else {target=args.command||args.cmd||target;if(actionKind(t)==='command')verb=done?'Ran command':t.state==='running'?'Running command':verb;}
   if(kind==='read'||kind==='write')target=String(target).split(/[\\/]/).pop();
   let label=[verb,target].filter(Boolean).join(' ');
   if(t.state==='proposed')label+=' · Approval needed';
@@ -150,7 +150,17 @@ function renderTool(t){
     if(t.state==='proposed')card.open=true;
     else if(card.dataset?.state==='proposed')card.open=false;
     card.dataset.state=t.state;
+    if(card.commandTimer)clearTimeout(card.commandTimer);
     card.replaceChildren();const title=toolSummary(t);
+    if(shell){
+      if(Number.isFinite(t.commandStartedAt))card.commandStartedAt=t.commandStartedAt;
+      else if(t.state==='running'&&!Number.isFinite(card.commandStartedAt))card.commandStartedAt=Date.now();
+      if(Number.isFinite(card.commandStartedAt)){
+        const elapsed=document.createElement('span');elapsed.className='command-elapsed';title.append(elapsed);
+        const duration=Number.isFinite(t.commandDurationMs)?t.commandDurationMs:Math.max(0,Date.now()-card.commandStartedAt);
+        const tick=()=>{elapsed.textContent=(t.state==='running'?'Running command for ':t.state==='error'?'Command failed after ':'Ran command for ')+workDuration(t.state==='running'?Date.now()-card.commandStartedAt:duration);if(t.state==='running')card.commandTimer=setTimeout(tick,1000);};tick();
+      }
+    }
     const preview=document.createElement('pre');preview.textContent=[t.effect,typeof t.preview==='string'?t.preview:'',JSON.stringify(t.args,null,2),t.result?String(t.result).slice(0,16000):''].filter(Boolean).join('\n');
     if(shell){
       const panel=document.createElement('div');panel.className='shell-panel';const header=document.createElement('div');header.className='shell-header';const label=document.createElement('span');label.textContent='Shell';
@@ -225,7 +235,7 @@ function entry(role,text,timestamp) {
 }
 function flush() {if(scheduled)clearTimeout(scheduled);scheduled=undefined;if(!buffer)return;if(bufferRole==='reasoning'){entry('reasoning','');buffer='';return;}if(last?.role!==bufferRole)entry(bufferRole,'');last.text+=buffer;formatStreaming(last);buffer='';scroll();}
 function busy(value) {
-  if(!value){stopWorkTimer();clearThinking();}
+  if(!value){stopWorkTimer();clearThinking();for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);}
   working=value;$('send').hidden=value;$('send').disabled=value;$('new').disabled=value;$('chats').disabled=value;$('rename').disabled=value;$('stop').hidden=!value;$('stop').disabled=!value;
   if(!value)manualCompaction=false;$('stop').disabled=!value||manualCompaction;commandSuggestion();
   document.body.classList.toggle('working',value);renderChats();
@@ -243,7 +253,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
   else if(m.type==='turnStarted')startWorkTimer(m.startedAt);
-  else if(m.type==='restore'){clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
+  else if(m.type==='restore'){clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp);
   else if(m.type==='changeUpdated'){const card=Array.from(history.children).find(e=>e.dataset?.changeId===m.summary.id);if(card)changeCard(m.summary,card);}
   else if(m.type==='chunk'&&m.role==='reasoning'){flush();entry('reasoning','');}
