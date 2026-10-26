@@ -51,3 +51,9 @@ test('Markdown tables support streaming, inline formatting, alignment and escape
  renderer.render(body,'Run a | b\nthen continue',()=>{});assert.equal(body.querySelector('table'),null);
  renderer.render(body,'| Name | Value |\n| --',()=>{});assert.equal(body.querySelector('table'),null);
 });
+test('lists render as bullets with nested items, inline formatting and literal code preserved',()=>{
+ const dom=new JSDOM('<div class="content"></div>'),body=dom.window.document.querySelector('div');
+ renderer.render(body,'Changes:\n- **First** item\n  - Nested `code`\n- Second item\n\n1. Third item\n2. Fourth <script>literal</script>\n\n```text\n- not a list\n```',()=>{});
+ assert.equal(body.querySelectorAll('li').length,5);assert.equal(body.querySelector('li strong').textContent,'First');assert.equal(body.querySelector('li ul li code').textContent,'code');assert.equal(body.querySelector('script'),null);assert.equal(body.querySelector('pre code').textContent,'- not a list');
+ renderer.render(body,'- First\n- Second',()=>{});assert.equal(body.querySelectorAll('li').length,2);dom.window.close();
+});

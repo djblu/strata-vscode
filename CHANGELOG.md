@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.13 — 2026-10-26
+
+- Use boxed terminal icons and activity-specific icons for mixed groups.
+- Render Markdown lists as bullet points with nesting and inline formatting; preserve fenced code verbatim.
+
 ## 0.1.12 — 2026-10-26
 
 - Group consecutive mixed actions with headers describing reads, edits, deletions, searches and commands.

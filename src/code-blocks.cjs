@@ -46,6 +46,25 @@ function render(body,text,copy,openLink) {
   for(let i=0;i<lines.length;i++){
     const open=/^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)[^\n]*$/.exec(lines[i]);
     if(!open){
+      const bullet=/^(\s*)(?:[-+*•]|\d+[.)])\s+(.+)$/.exec(lines[i]);
+      if(bullet){
+        flush();const list=document.createElement('ul');list.className='markdown-list';fragment.append(list);
+        const stack=[{indent:bullet[1].length,list,last:null}];
+        for(;i<lines.length;i++){
+          const item=/^(\s*)(?:[-+*•]|\d+[.)])\s+(.+)$/.exec(lines[i]);
+          if(!item){
+            if(!lines[i].trim()&&/^(\s*)(?:[-+*•]|\d+[.)])\s+/.test(lines[i+1]||''))continue;
+            const top=stack.at(-1);
+            if(lines[i].trim()&&/^\s+/.test(lines[i])&&!/^\s*(`{3,}|~{3,})/.test(lines[i])&&top.last){top.last.append(document.createTextNode(' '));inline(top.last,lines[i].trim(),document,openLink);continue;}
+            break;
+          }
+          const indent=item[1].length;
+          while(stack.length>1&&indent<stack.at(-1).indent)stack.pop();
+          if(indent>stack.at(-1).indent&&stack.at(-1).last){const nested=document.createElement('ul');nested.className='markdown-list';stack.at(-1).last.append(nested);stack.push({indent,list:nested,last:null});}
+          const li=document.createElement('li');inline(li,item[2],document,openLink);stack.at(-1).list.append(li);stack.at(-1).last=li;
+        }
+        i--;continue;
+      }
       const table=tableHeader(lines[i],lines[i+1]);
       if(!table){prose.push(lines[i]);continue;}
       flush();const wrapper=document.createElement('div');wrapper.className='markdown-table';
