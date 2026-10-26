@@ -240,7 +240,11 @@ function activate(context) {
     contextFrame(f);
     if(f.noteReason==='compacted'){add('compaction',manualCompaction?'Context compacted':'Context automatically compacted');return;}
     if(['done','error'].includes(f.type))manualCompaction=false;
-    if (f.type === 'delta' || f.type === 'reasoning') {
+    if(f.type==='reasoning'){
+      if(transcript.at(-1)?.role!=='reasoning')add('reasoning','');
+      return; // Display a status marker only; the harness retains its own model context.
+    }
+    if (f.type === 'delta') {
       const role = f.type === 'delta' ? 'assistant' : 'reasoning';
       const text = String(f.text || '');
       if (transcript.at(-1)?.role !== role || transcript.at(-1).text.length > 64000) add(role, '');
@@ -335,7 +339,7 @@ function activate(context) {
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});
     v.webview.onDidReceiveMessage(safe(async m => {
-      if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
+      if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,turnStartedAt,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
       else if (m.type === 'profiles') await chooseProfile();
       else if(m.type==='viewChanges'||m.type==='undoChanges')await changeAction(m);
       else if (m.type === 'connect') await connect();
@@ -393,7 +397,7 @@ function activate(context) {
         try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.');
           reportedChanges=new Set();
           if(m.text.trim()!=='/compact'){post({type:'status',text:'Saving workspace checkpoint…'});try{turnSnapshot=await changeStore.scan(vscode.workspace.workspaceFolders[0].uri.fsPath,dirtyPaths());}catch(e){add('notice','Undo checkpoint unavailable: '+e.message);}}
-          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); turnStartedAt=Date.now();write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
+          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); turnStartedAt=Date.now();post({type:'turnStarted',startedAt:turnStartedAt});write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
         catch (e) {turnStartedAt=undefined;turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}
       } else if (m.type === 'stop') {write({type:'stop',chatId}); post({type:'status',text:'Stopping…'});}
       else if (m.type === 'approve') {

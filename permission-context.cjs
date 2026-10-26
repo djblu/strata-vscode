@@ -6,6 +6,6 @@ const instructions={
 };
 function permissionContext(message,mode){
   if(!Object.hasOwn(instructions,mode))throw Error('Invalid permission mode');
-  return `[Strata VS Code permission setting for this turn]\n${instructions[mode]}\n[User request]\n${message}`;
+  return `[Strata VS Code permission setting for this turn]\n${instructions[mode]}\n[Progress updates]\nFor tasks involving tools, give a brief plain-language progress update before starting, then use the tools. After significant findings, briefly explain what you found and the next action. Keep updates concise and useful; do not narrate every tool call or reveal internal reasoning. Finish with a clear summary of the result and relevant verification. Use ordinary text, without headings such as Progress Commentary or Action.\n[User request]\n${message}`;
 }
 module.exports={permissionContext};

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 — 2026-10-26
+
+- Show Thinking instead of raw reasoning text, including restored older chats, without changing harness context.
+- Encourage brief progress commentary between tool actions.
+- Add a live Working for timer with a divider; retain elapsed time when the webview reopens.
+- Match user-message fill and border colours.
+
 ## 0.1.6 — 2026-10-26
 
 - Fold completed turn activity into a Worked for duration dropdown above the final response.

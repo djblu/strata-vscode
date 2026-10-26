@@ -25,7 +25,7 @@ test('1000 streamed chunks preserve their text and tool content remains text',as
  assert.equal(card.tag,'details');assert.equal(card.open,true);
  card.children[2].onclick();assert.equal(sent.at(-1).decision,'approve');assert.equal(card.children[3].disabled,true);
  listener({data:{type:'entry',role:'reasoning',text:'Private reasoning text'}});
- const reasoning=elements.get('history').children[2];assert.equal(reasoning.tag,'details');assert.notEqual(reasoning.open,true);assert.equal(reasoning.children[0].tag,'summary');
+ const reasoning=elements.get('history').children[2];assert.equal(reasoning.tag,'div');assert.equal(reasoning.textContent,'Thinking…');assert.equal(reasoning.children.length,0);
  listener({data:{type:'busy',value:true}});assert.equal(elements.get('send').hidden,true);assert.equal(elements.get('stop').hidden,false);
  listener({data:{type:'busy',value:false}});assert.equal(elements.get('send').hidden,false);assert.equal(elements.get('stop').hidden,true);
  listener({data:{type:'contextInfo',used:200000,max:262144,compacting:true}});
