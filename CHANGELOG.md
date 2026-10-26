@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.24 — 2026-10-26
+
+- Exempt Worked for sections from dropdown height limits; nested action groups and tools remain scrollable.
+
 ## 0.1.23 — 2026-10-26
 
 - Apply a shared responsive height limit to expanded turn, activity and tool dropdowns, with vertical scrolling for overflow. Short dropdowns remain compact.
