@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 — 2026-10-26
+
+- Show reasoning and tool disclosure chevrons on hover or keyboard focus, pointing right when collapsed and down when expanded.
+- Keep chevrons visible on touch devices and respect reduced-motion preferences.
+
 ## 0.1.4 — 2026-10-26
 
 - Capture new-file diffs when an unrelated subtree reaches scan limits, using pre-turn directory inventories to prove the file did not exist.

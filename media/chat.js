@@ -82,7 +82,7 @@ function activitySummary(label,kind='thought') {
   const paths={read:'<path d="M12 5c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1Zm0 0v14"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',write:'<path d="m4 16 12-12 4 4L8 20H4v-4ZM14 6l4 4"/>',command:'<path d="m4 5 7 7-7 7m9 0h7"/>',thought:'<path d="M8 17h8m-7 4h6M8 14a7 7 0 1 1 8 0v3H8Z"/>'};
   icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths[kind]+'</svg>';
   const text=document.createElement('span');text.className='activity-label';text.textContent=label;
-  const arrow=document.createElement('span');arrow.className='activity-chevron';arrow.textContent='⌄';
+  const arrow=document.createElement('span');arrow.className='activity-chevron';arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3 5 5-5 5"/></svg>';
   summary.append(icon,text,arrow);return summary;
 }
 function toolSummary(t) {
