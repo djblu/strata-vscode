@@ -111,3 +111,13 @@ test('failed file actions show only error details without tool arguments or desc
  emit(tool);const card=dom.window.document.querySelector('.tool');assert.equal(card.querySelector('pre').textContent,'Details: cannot modify index.html: file has not been read — read the file, then retry');assert.doesNotMatch(card.textContent,/OLD_PAYLOAD|NEW_PAYLOAD|Changes a file|The file could not be changed/);
  emit({...tool,result:'Permission denied'});assert.equal(card.querySelector('pre').textContent,'Permission denied');dom.window.close();
 });
+
+test('completed turn folds automatically opened failure groups and restores them collapsed',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});dom.window.acquireVsCodeApi=()=>({postMessage(){}});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));const failed={id:'e',name:'edit',state:'error',args:{path:'index.html'},result:'Details: read the file first'},read={id:'r',name:'read',state:'done',args:{path:'index.html'}};
+ emit({type:'entry',role:'user',text:'Edit page'});emit({type:'tool',tool:failed});emit({type:'tool',tool:read});assert.equal(dom.window.document.querySelector('.command-group').open,true);
+ emit({type:'entry',role:'assistant',text:'Finished'});emit({type:'entry',role:'turn-summary',text:JSON.stringify({durationMs:22000})});
+ let outer=dom.window.document.querySelector('.turn-work');outer.open=true;assert.equal(outer.querySelector('.command-group').open,false);assert.equal(outer.querySelector('details.tool').open,false);
+ emit({type:'restore',busy:false,mode:'manual',transcript:[{role:'user',text:'Edit page'},...[failed,read].map(t=>({role:'tool',text:JSON.stringify(t)})),{role:'assistant',text:'Finished'},{role:'turn-summary',text:JSON.stringify({durationMs:22000})}]});
+ outer=dom.window.document.querySelector('.turn-work');outer.open=true;assert.equal(outer.querySelector('.command-group').open,false);outer.querySelector('.command-group').open=true;assert.equal(outer.querySelector('.command-group').open,true);dom.window.close();
+});

@@ -212,6 +212,7 @@ function turnSummary(data){
   const activity=work.filter(n=>n!==final&&!n.classList.contains('change-summary')&&!n.classList.contains('error'));
   if(work[0])history.insertBefore(details,work[0]);else history.append(details);
   for(const node of activity)content.append(node);
+  for(const disclosure of content.querySelectorAll('details.command-group,details.tool'))disclosure.open=false;
   scroll();
 }
 function entry(role,text,timestamp) {

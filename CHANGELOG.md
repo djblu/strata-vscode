@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.19 — 2026-10-26
+
+- Collapse nested activity groups and tool details when a turn completes, including groups opened automatically for failures. Saved chats restore the same collapsed state.
+
 ## 0.1.18 — 2026-10-26
 
 - Restore consistent space before user messages and reduce stacked margins before the following turn, retaining stable space for hover controls.
