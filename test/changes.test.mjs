@@ -26,7 +26,8 @@ test('uncaptured and dirty files cannot become false additions; symlinks and esc
 });
 test('incomplete scans never offer to delete files not captured before the turn',async()=>{
  const {root,store}=await fixture({maxBytes:2});await writeFile(path.join(root,'a'),'abcd');const before=await store.scan(root);assert.equal(before.partial,true);
- await writeFile(path.join(root,'b'),'x');assert.equal(await store.finish(before,'chat'),null);
+ await writeFile(path.join(root,'a'),'x');assert.equal(await store.finish(before,'chat'),null);
+ await writeFile(path.join(root,'b'),'x');const summary=await store.finish(before,'chat');assert.deepEqual(summary.files.map(f=>f.path),['b']);
 });
 test('UTF-8 BOM, CRLF and executable mode survive snapshots; permission changes refuse undo',async()=>{
  const {root,store}=await fixture();const file=path.join(root,'script');await writeFile(file,'\uFEFFa\r\n');await chmod(file,0o755);const before=await store.scan(root);await writeFile(file,'\uFEFFb\r\n');
@@ -61,4 +62,22 @@ test('live checkpoints update one task diff without losing the original baseline
  const record=await store.load(second.id,'chat');assert.equal(record.files[0].before.text,'original\n');assert.equal(record.files[0].after.text,'finished\n');
  const diff=await readFile(path.join(store.dir,second.id+'.diff'),'utf8');assert.match(diff,/-original/);assert.match(diff,/\+finished/);assert.doesNotMatch(diff,/intermediate/);
  await writeFile(path.join(root,'clock.html'),'original\n');const reverted=await store.finish(before,'chat');assert.equal(reverted.id,first.id);assert.equal(reverted.files.length,0);assert.equal(await readFile(path.join(store.dir,first.id+'.diff'),'utf8'),'');
+});
+
+test('new root files and new directories get diffs when unrelated trees exceed scan limits',async()=>{
+ const {root,store}=await fixture({maxFiles:5});await mkdir(path.join(root,'aaa-large'));
+ for(let i=0;i<20;i++)await writeFile(path.join(root,'aaa-large',String(i)),'noise');
+ const before=await store.scan(root);assert.equal(before.partial,true);
+ await writeFile(path.join(root,'pacman.html'),'<html>new game</html>\n');
+ await mkdir(path.join(root,'new-game'));await writeFile(path.join(root,'new-game','index.html'),'new page\n');
+ // The nested file may be beyond the content scan, but its absence can be proved.
+ assert.equal(store.wasAbsent(before,path.join('new-game','index.html')),true);
+ const summary=await store.finish(before,'chat');assert.ok(summary.files.some(f=>f.path==='pacman.html'&&f.kind==='added'));
+ const record=await store.load(summary.id,'chat');assert.equal(record.files.find(f=>f.path==='pacman.html').before,null);await store.validateUndo(record);
+ assert.match(await readFile(path.join(store.dir,summary.id+'.diff'),'utf8'),/\+<html>new game/);
+});
+test('an unvisited existing directory cannot prove a file was absent',async()=>{
+ const {root,store}=await fixture({maxFiles:1});await mkdir(path.join(root,'existing'));await writeFile(path.join(root,'existing','old.txt'),'user data');
+ const before=await store.scan(root);assert.equal(before.partial,true);assert.equal(store.wasAbsent(before,path.join('existing','old.txt')),false);
+ store.maxFiles=100;await writeFile(path.join(root,'existing','old.txt'),'changed');assert.equal(await store.finish(before,'chat'),null);
 });

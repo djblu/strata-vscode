@@ -37,10 +37,12 @@ class ChangeStore{
  }
  async scan(root,dirty=[]){
   root=await fs.realpath(root);const files=new Map(),known=new Set(),skipped=new Set();let bytes=0,count=0,partial=false;
+  const directories=new Map();
   const start=Date.now(),blocked=new Set(dirty.map(p=>path.resolve(p)));
   const queue=[root];
   const walk=async dir=>{
    let entries;try{entries=await fs.readdir(dir,{withFileTypes:true});}catch{partial=true;return;}
+   directories.set(path.relative(root,dir),new Set(entries.map(e=>e.name)));
    for(const e of entries){
     if(++count>this.maxFiles||Date.now()-start>this.maxMs){partial=true;return;}
     const full=path.join(dir,e.name),rel=path.relative(root,full);
@@ -52,14 +54,26 @@ class ChangeStore{
   };
   while(queue.length&&count<=this.maxFiles&&Date.now()-start<=this.maxMs)await walk(queue.shift());
   if(queue.length)partial=true;
-  return {id:randomUUID(),root,files,known,skipped,partial};
+  return {id:randomUUID(),root,files,known,skipped,partial,directories};
+ }
+ wasAbsent(before,rel){
+  // A complete directory listing proves absence even if a different subtree
+  // exhausted the content scan. Missing inventories never prove absence.
+  let parent='';
+  for(const part of rel.split(path.sep)){
+   const names=before.directories?.get(parent);
+   if(!names)return false;
+   if(!names.has(part))return true;
+   parent=path.join(parent,part);
+  }
+  return false;
  }
  async finish(before,chatId,dirty=[]){
   const after=await this.scan(before.root,dirty),files=[];const blocked=new Set(dirty.map(p=>path.resolve(p)));
   for(const rel of new Set([...before.files.keys(),...after.files.keys()])){
    if(blocked.has(path.join(before.root,rel))||before.skipped.has(rel)||after.skipped.has(rel))continue;
    const old=before.files.get(rel)||null;
-   if(!old&&(before.partial||before.known.has(rel)))continue; // Never call an uncaptured file a new file.
+   if(!old&&(before.known.has(rel)||(before.partial&&!this.wasAbsent(before,rel))))continue; // Never call an uncaptured file a new file.
    let next;try{next=await this.read(before.root,rel);}catch{continue;}
    if(old?.text===next?.text&&old?.mode===next?.mode)continue;
    files.push({path:rel,before:old,after:next,...lineStats(old?.text||'',next?.text||'')});

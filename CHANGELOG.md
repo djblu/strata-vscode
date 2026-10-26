@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 — 2026-10-26
+
+- Capture new-file diffs when an unrelated subtree reaches scan limits, using pre-turn directory inventories to prove the file did not exist.
+- Continue refusing automatic Undo for uncaptured existing files.
+- Reset the status to Ready after collecting changes.
+
 ## 0.1.3 — 2026-10-25
 
 - Fix checkpoint scan ordering so large subfolders cannot prevent capturing root files.

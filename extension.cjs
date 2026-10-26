@@ -47,7 +47,7 @@ function activate(context) {
         if(missing.length)add('notice','Some reported file updates have no captured diff (outside the workspace, excluded, unchanged, or scan limits): '+missing.join(', '));
         else if(!snapshot.saved&&snapshot.partial)add('notice','No file diff captured. The workspace checkpoint reached its scan limits; open a smaller project folder for reliable change tracking.');}}
       catch(e){add('notice','File change summary unavailable: '+e.message);}
-      finally{manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});persist();}
+      finally{manualCompaction=false;contextFrame({type:'idle'});busy=false;post({type:'busy',value:false});post({type:'status',text:'Ready'});persist();}
     })();
     try{await finishing;}finally{finishing=undefined;}
   }

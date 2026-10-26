@@ -122,3 +122,5 @@ Snapshots cover UTF-8 text files up to 1 MiB each, within a 32 MiB/5,000-entry/f
 Snapshots stay on the extension host (the SSH host for remote workspaces), in its private global storage; their contents are not sent to the model. Retained snapshots are capped at 512 MiB; new checkpoints stop when full rather than deleting older ones automatically. Deleting a saved chat does not delete its retained snapshot files.
 
 Checkpoint scans visit root files before descending into subfolders, so large nested trees do not starve top-level files. Scan limits and reported updates without a captured diff produce a notice. For complete coverage, open the project folder rather than an entire home directory. A diff cannot reconstruct an uncaptured pre-edit version; such files are never offered for automatic Undo.
+
+New-file detection uses pre-turn directory listings: an incomplete scan elsewhere does not suppress a new file in a listed directory. Files in unvisited existing directories still require a captured baseline for safe Undo.
