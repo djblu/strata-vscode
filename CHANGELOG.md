@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.17 — 2026-10-26
+
+- Use consistent spacing between commentary and action groups in live and completed turns.
+- Remove leading/trailing prose blank lines that inflated gaps while preserving paragraph breaks and code whitespace.
+
 ## 0.1.16 — 2026-10-26
 
 - Show only error details in failed file-action dropdowns, omitting tool descriptions, previews and edit arguments.

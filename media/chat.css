@@ -80,3 +80,11 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 .tool[data-shell="true"]>summary.activity-summary{flex-wrap:wrap;column-gap:7px;row-gap:0}.tool[data-shell="true"]>summary>.activity-label{max-width:calc(100% - 46px)}.command-elapsed{flex:0 0 calc(100% - 23px);margin-left:23px;color:var(--vscode-descriptionForeground);font-size:11px;line-height:20px}
 
 .tool .file-action-row{display:flex;align-items:center;gap:7px;padding:4px 0;line-height:20px;font-weight:400}.tool .file-action-row .activity-file{display:inline;margin:0;padding:0;background:transparent;color:var(--vscode-textLink-foreground);font:inherit}.tool .file-action-row .activity-file:hover{text-decoration:underline}
+
+/* Equal gaps at commentary/activity boundaries, live and inside completed turns. */
+#history>.assistant,#history>.tool,#history>.command-group,
+.turn-work-content>.assistant,.turn-work-content>.tool,.turn-work-content>.command-group{margin-top:0;margin-bottom:0}
+#history>:is(.assistant,.tool,.command-group)+:is(.assistant,.tool,.command-group),
+.turn-work-content>:is(.assistant,.tool,.command-group)+:is(.assistant,.tool,.command-group){margin-top:18px}
+.command-group>.tool{margin-top:2px;margin-bottom:2px}
+.content>:first-child{margin-top:0}.content>:last-child{margin-bottom:0}

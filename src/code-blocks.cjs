@@ -42,7 +42,7 @@ function tableHeader(line,divider){
 function render(body,text,copy,openLink) {
   const document=body.ownerDocument;const fragment=document.createDocumentFragment();
   const lines=text.split('\n');let prose=[];
-  function flush(){if(prose.length){const p=document.createElement('div');p.className='prose';inline(p,prose.join('\n'),document,openLink);fragment.append(p);prose=[];}}
+  function flush(){if(prose.length){const text=prose.join('\n').replace(/^(?:[ \t]*\n)+|(?:\n[ \t]*)+$/g,'');if(text.trim()){const p=document.createElement('div');p.className='prose';inline(p,text,document,openLink);fragment.append(p);}prose=[];}}
   for(let i=0;i<lines.length;i++){
     const open=/^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)[^\n]*$/.exec(lines[i]);
     if(!open){

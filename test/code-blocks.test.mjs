@@ -57,3 +57,9 @@ test('lists render as bullets with nested items, inline formatting and literal c
  assert.equal(body.querySelectorAll('li').length,5);assert.equal(body.querySelector('li strong').textContent,'First');assert.equal(body.querySelector('li ul li code').textContent,'code');assert.equal(body.querySelector('script'),null);assert.equal(body.querySelector('pre code').textContent,'- not a list');
  renderer.render(body,'- First\n- Second',()=>{});assert.equal(body.querySelectorAll('li').length,2);dom.window.close();
 });
+
+test('prose boundary newlines do not add blank spacing around activity while paragraphs and code remain intact',()=>{
+ const dom=new JSDOM('<div></div>'),body=dom.window.document.querySelector('div');
+ renderer.render(body,'\n\nFirst paragraph.\n\nSecond paragraph.\n\n',()=>{});assert.equal(body.querySelector('.prose').textContent,'First paragraph.\n\nSecond paragraph.');
+ renderer.render(body,'\n\n```text\n\nkeep blank line\n```\n\n',()=>{});assert.equal(body.querySelectorAll('.prose').length,0);assert.equal(body.querySelector('pre code').textContent,'\nkeep blank line');dom.window.close();
+});
