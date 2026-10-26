@@ -139,8 +139,12 @@ function renderTool(t){
   if(t.name==='present'&&!['proposed','error','denied'].includes(t.state)){const old=cards.get(t.id);if(old){old.remove();cards.delete(t.id);}return;}
   formatted(last);last=undefined;
   const shell=['bash','pwsh','shell','exec_command'].includes(t.name);
-  let card=cards.get(t.id);if(!card){
-    card=document.createElement('details');card.className='tool';card.dataset.action=actionKind(t);if(shell)card.dataset.shell='true';cards.set(t.id,card);
+  const flat=['read','write'].includes(actionKind(t))&&!['proposed','error','denied'].includes(t.state);
+  const tag=flat?'div':'details';
+  let card=cards.get(t.id);
+  if(card&&(card.tagName||card.tag).toLowerCase()!==tag){const replacement=document.createElement(tag);replacement.className=card.className;Object.assign(replacement.dataset,card.dataset);card.replaceWith(replacement);card=replacement;cards.set(t.id,card);}
+  if(!card){
+    card=document.createElement(tag);card.className='tool';card.dataset.action=actionKind(t);if(shell)card.dataset.shell='true';cards.set(t.id,card);
     const previous=history.lastElementChild;
     if(previous?.classList.contains('command-group'))previous.append(card);
     else if(previous?.classList.contains('tool')){
@@ -151,7 +155,8 @@ function renderTool(t){
     else if(card.dataset?.state==='proposed')card.open=false;
     card.dataset.state=t.state;
     if(card.commandTimer)clearTimeout(card.commandTimer);
-    card.replaceChildren();const title=toolSummary(t);
+    card.replaceChildren();let title=toolSummary(t);
+    if(flat){title.querySelector('.activity-chevron').remove();const row=document.createElement('div');row.className='activity-summary file-action-row';row.append(...title.childNodes);title=row;}
     if(shell){
       if(Number.isFinite(t.commandStartedAt))card.commandStartedAt=t.commandStartedAt;
       else if(t.state==='running'&&!Number.isFinite(card.commandStartedAt))card.commandStartedAt=Date.now();
@@ -166,7 +171,7 @@ function renderTool(t){
       const panel=document.createElement('div');panel.className='shell-panel';const header=document.createElement('div');header.className='shell-header';const label=document.createElement('span');label.textContent='Shell';
       const command=String(t.args?.command??t.args?.cmd??t.preview??'');preview.textContent=(command?'$ '+command+'\n':'')+(t.result==null?'':String(t.result).slice(0,16000));
       const copy=document.createElement('button');copy.textContent='Copy';copy.title='Copy command and output';copy.onclick=()=>{const id=++copyId;copies.set(id,copy);copy.disabled=true;vscode.postMessage({type:'copyCode',id,text:preview.textContent});};header.append(label,copy);panel.append(header,preview);card.append(title,panel);
-    }else card.append(title,preview);
+    }else if(flat)card.append(title);else card.append(title,preview);
     if(t.state==='proposed')for(const [label,decision] of [['Approve once','approve'],['Deny','deny']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{for(const el of card.querySelectorAll('button'))el.disabled=true;vscode.postMessage({type:'approve',callId:t.id,decision});};card.append(b);}
     const group=card.parentElement;
     if(group?.classList.contains('command-group')){

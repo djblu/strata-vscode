@@ -9,11 +9,11 @@ test('compact activity updates labels, retains expanded details and keeps approv
  dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
  const emit=tool=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data:{type:'tool',tool}}));
  emit({id:'read1',name:'read',state:'running',args:{file_path:'/workspace/chat.js'}});
- const card=dom.window.document.querySelector('.tool');assert.equal(card.open,false);assert.equal(card.querySelector('.activity-label').textContent,'Reading chat.js');assert.ok(card.querySelector('svg'));
- card.open=true;emit({id:'read1',name:'read',state:'done',args:{file_path:'/workspace/chat.js'},result:'file contents'});assert.equal(card.open,true);assert.equal(card.querySelector('.activity-label').textContent,'Read chat.js');assert.match(card.querySelector('pre').textContent,/file contents/);
+ const card=dom.window.document.querySelector('.tool');assert.equal(card.tagName,'DIV');assert.equal(card.querySelector('.activity-label').textContent,'Reading chat.js');assert.ok(card.querySelector('svg'));
+ emit({id:'read1',name:'read',state:'done',args:{file_path:'/workspace/chat.js'},result:'file contents'});assert.equal(card.querySelector('.activity-label').textContent,'Read chat.js');assert.equal(card.querySelector('pre'),null);assert.equal(card.querySelector('.activity-chevron'),null);
  emit({id:'write1',name:'write',state:'proposed',args:{file_path:'test.js',content:'hello'}});
  const pending=dom.window.document.querySelectorAll('.tool')[1];assert.equal(pending.open,true);assert.match(pending.querySelector('summary').textContent,/Approval needed/);pending.querySelector(':scope > button').click();assert.equal(sent.at(-1).decision,'approve');
- emit({id:'write1',name:'write',state:'done',args:{file_path:'test.js'}});assert.equal(pending.open,false);assert.equal(pending.querySelector(':scope > button'),null);
+ emit({id:'write1',name:'write',state:'done',args:{file_path:'test.js'}});const completed=dom.window.document.querySelectorAll('.tool')[1];assert.equal(completed.tagName,'DIV');assert.equal(completed.querySelector(':scope > button'),null);assert.equal(completed.querySelector('summary'),null);assert.ok(completed.querySelector('.activity-file'));
  dom.window.close();
 });
 

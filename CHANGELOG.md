@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.15 — 2026-10-26
+
+- Display routine read/edit actions as plain filename rows without dropdowns. Keep approval requests and failures expandable.
+
 ## 0.1.14 — 2026-10-26
 
 - Style Markdown tables with bold headers and horizontal separators without an outer box.

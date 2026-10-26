@@ -78,3 +78,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 /* Flat tables and elapsed command status. */
 .markdown-table{border:0;border-radius:0}.markdown-table th{background:transparent}.markdown-table th,.markdown-table td{padding:10px 8px}.markdown-table th:first-child,.markdown-table td:first-child{padding-left:0}.markdown-table th:last-child,.markdown-table td:last-child{padding-right:0}
 .tool[data-shell="true"]>summary.activity-summary{flex-wrap:wrap;column-gap:7px;row-gap:0}.tool[data-shell="true"]>summary>.activity-label{max-width:calc(100% - 46px)}.command-elapsed{flex:0 0 calc(100% - 23px);margin-left:23px;color:var(--vscode-descriptionForeground);font-size:11px;line-height:20px}
+
+.tool .file-action-row{display:flex;align-items:center;gap:7px;padding:4px 0;line-height:20px;font-weight:400}.tool .file-action-row .activity-file{display:inline;margin:0;padding:0;background:transparent;color:var(--vscode-textLink-foreground);font:inherit}.tool .file-action-row .activity-file:hover{text-decoration:underline}
