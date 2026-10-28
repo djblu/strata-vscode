@@ -124,3 +124,7 @@ Snapshots stay on the extension host (the SSH host for remote workspaces), in it
 Checkpoint scans visit root files before descending into subfolders, so large nested trees do not starve top-level files. Scan limits and reported updates without a captured diff produce a notice. For complete coverage, open the project folder rather than an entire home directory. A diff cannot reconstruct an uncaptured pre-edit version; such files are never offered for automatic Undo.
 
 New-file detection uses pre-turn directory listings: an incomplete scan elsewhere does not suppress a new file in a listed directory. Files in unvisited existing directories still require a captured baseline for safe Undo.
+
+### Attach files from your PC
+
+Use **+ → Files from your PC** to select local UTF-8 text/code files or supported images, including in Remote SSH windows. Text is sent as a content snapshot, not a server path; the original PC file is not editable by the remote harness. Limits: 100 KB per text file, 200 KB total text attachments per message. PDF, Office and binary documents are not supported. Use **Files and folders** for workspace/server references.

@@ -39,3 +39,14 @@ test('sent images persist separately from transcript metadata and deduplicate sa
  const {mkdtemp,readdir}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const path=await import('node:path');const {saveImages,validId}=await import('../sent-images.cjs');
  const dir=await mkdtemp(path.join(tmpdir(),'strata-sent-images-'));const first=await saveImages(dir,[{name:'screen.png',url:png}]);const again=await saveImages(dir,[{name:'second.png',url:png}]);assert.equal(first[0].id,again[0].id);assert.equal((await readdir(dir)).length,1);assert.equal(first[0].url,undefined);assert.equal(validId('../outside.png'),false);assert.equal(validId(first[0].id),true);assert.equal((await readFile(path.join(dir,first[0].id))).toString('base64'),png.split(',')[1]);
 });
+test('PC file picker attaches text contents, rejects binary and keeps workspace picker separate',async()=>{
+ const dom=new JSDOM(html({nonce:'x',source:'self'}),{runScripts:'outside-only'});const sent=[];
+ dom.window.TextDecoder=TextDecoder;dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const $=id=>dom.window.document.getElementById(id);
+ let picked=false;$('local-file-picker').click=()=>{picked=true;};$('add-local-files').click();assert.ok(picked);$('add-files').click();assert.equal(sent.at(-1).type,'add-files');
+ const files=[new dom.window.File(['hello from the PC'],'local.txt'),new dom.window.File([new Uint8Array([0,1,2])],'binary.bin')];
+ Object.defineProperty($('local-file-picker'),'files',{value:files});$('local-file-picker').onchange();
+ for(let i=0;i<100&&!$('status').textContent.includes('binary.bin');i++)await new Promise(r=>setTimeout(r,5));
+ assert.equal($('attachments').children.length,1);assert.match($('status').textContent,/binary.bin/);
+ $('send').click();assert.match(sent.at(-1).text,/hello from the PC/);assert.match(sent.at(-1).text,/not a path on the server/);dom.window.close();
+});

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.27 — 2026-10-28
+
+- Add Files from your PC to the attachment menu, alongside workspace/server files.
+- Attach UTF-8 text/code contents or supported images from the client PC in Remote SSH windows.
+- Validate text size and reject binary documents.
+
+
 ## 0.1.26 — 2026-10-28
 
 - Show sent images as right-aligned thumbnails above the user message, with click-to-open in VS Code.

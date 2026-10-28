@@ -17,6 +17,25 @@ function addImages(files){imageReads=imageReads.then(async()=>{for(const file of
  const chat=activeChat;const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
  if(chat===activeChat)addAttachment({name:file.name||'Screenshot.png',url,size:file.size});
  }}).catch(()=>{$('status').textContent='Could not read the image.';});}
+// The webview file input opens on the client PC, including in Remote SSH windows.
+let localFileReads=Promise.resolve();
+function addLocalFiles(files){const chat=activeChat;localFileReads=localFileReads.then(async()=>{
+ for(const file of files){
+  if(chat!==activeChat)return;
+  if(/^image\//.test(file.type)){addImages([file]);await imageReads;continue;}
+  if(file.size>100000){$('status').textContent='Local text files must be 100 KB or smaller.';continue;}
+  try{
+   const bytes=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(new Uint8Array(reader.result));reader.onerror=reject;reader.readAsArrayBuffer(file);});
+   if(bytes.includes(0))throw Error('binary');
+   const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+   if(/[\x01-\x08\x0b\x0c\x0e-\x1f]/.test(text))throw Error('binary');
+   if(chat!==activeChat)return;
+   if(attachments.reduce((n,a)=>n+(a.localBytes||0),0)+file.size>200000){$('status').textContent='Local text attachments are limited to 200 KB per message.';continue;}
+   addAttachment({name:file.name,localBytes:file.size,text:'\nAttached local file (content snapshot; not a path on the server): '+JSON.stringify(file.name)+'\n'+text+'\nEnd of local file: '+JSON.stringify(file.name)+'\n'});
+  }catch{$('status').textContent='Cannot attach '+file.name+': use UTF-8 text/code or PNG, JPEG and WebP images. PDF, Office and binary files are not supported.';}
+ }
+});}
+$('local-file-picker').onchange=()=>{addLocalFiles(Array.from($('local-file-picker').files));$('local-file-picker').value='';};
 $('image-picker').onchange=()=>{addImages(Array.from($('image-picker').files));$('image-picker').value='';};
 $('prompt').addEventListener('paste',event=>{const files=Array.from(event.clipboardData?.items||[]).filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();addImages(files);}});
 let last, buffer = '', bufferRole, scheduled, working = false, follow = true;
@@ -327,15 +346,16 @@ $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command
 for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect','profiles'])$(type).onclick=()=>vscode.postMessage({type});
 function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}
 $('add-context').onclick=()=>{const open=$('add-menu').hidden;closePermissionMenu();closeAddMenu();if(open){$('add-menu').hidden=false;$('add-context').setAttribute('aria-expanded','true');$('add-files').focus();}};
-for(const action of ['files','images','selection','git','plan'])$('add-'+action).onclick=()=>{
+for(const action of ['files','local-files','images','selection','git','plan'])$('add-'+action).onclick=()=>{
   closeAddMenu();
-  if(action==='images')$('image-picker').click();
+  if(action==='local-files')$('local-file-picker').click();
+  else if(action==='images')$('image-picker').click();
   else if(action==='plan'){vscode.postMessage({type:'permissionMode',mode:'plan'});$('prompt').value+='\nCreate a plan for the following task. Inspect relevant files, but do not make changes.\n';$('prompt').focus();}
   else vscode.postMessage({type:action==='selection'?'add-context':'add-'+action});
 };
 document.addEventListener?.('click',e=>{if(!$('add-menu').contains(e.target)&&!$('add-context').contains(e.target))closeAddMenu();});
 $('add-menu').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.preventDefault();closeAddMenu();$('add-context').focus();}
-  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const choices=['files','images','selection','git','plan'].map(x=>$('add-'+x));const i=choices.indexOf(document.activeElement);choices[e.key==='Home'?0:e.key==='End'?choices.length-1:(i+(e.key==='ArrowDown'?1:choices.length-1))%choices.length].focus();}
+  if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const choices=['files','local-files','images','selection','git','plan'].map(x=>$('add-'+x));const i=choices.indexOf(document.activeElement);choices[e.key==='Home'?0:e.key==='End'?choices.length-1:(i+(e.key==='ArrowDown'?1:choices.length-1))%choices.length].focus();}
 });
 vscode.postMessage({type:'loaded'});
