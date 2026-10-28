@@ -107,3 +107,5 @@ footer{padding:8px}.composer{border-radius:27px;border:1px solid var(--vscode-wi
 #history{--disclosure-max-height:min(360px,60vh)}
 #history details:is(.tool,.reasoning)[open]{max-height:var(--disclosure-max-height);overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;scrollbar-width:thin;overscroll-behavior-y:contain;min-height:0}
 #history .tool .shell-panel pre,#history .tool>pre,#history .reasoning>.content{max-height:calc(var(--disclosure-max-height) - 100px);overflow-y:auto;scrollbar-gutter:stable;scrollbar-width:thin}
+
+.sent-images{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin:0 0 10px;white-space:normal}.entry.user .sent-image{display:block;width:100px;height:100px;padding:0;border:1px solid var(--vscode-panel-border);border-radius:12px;overflow:hidden;background:var(--vscode-editor-background)}.sent-image img{display:block;width:100%;height:100%;object-fit:contain}.sent-image:focus-visible{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}

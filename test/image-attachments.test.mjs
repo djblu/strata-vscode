@@ -29,3 +29,13 @@ test('attachment cards and pasted images survive failed sends and clear only on 
  emit({type:'attachment',attachment:{name:'other.txt',text:'File: other.txt'}});$('attachments').querySelector('button').click();assert.equal($('attachments').hidden,true);
  dom.window.close();
 });
+test('sent thumbnails sit above user text, open by id and survive transcript restoration',async()=>{
+ const dom=new JSDOM(html({nonce:'test',script:'chat.js',style:'chat.css',highlight:'code.js',source:'self'}),{runScripts:'outside-only'});const sent=[];dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));
+ const emit=data=>dom.window.dispatchEvent(new dom.window.MessageEvent('message',{data}));const images=[{id:'image-id',name:'screen.png',url:'https://file+.vscode-resource.vscode-cdn.net/image.png'}];
+ emit({type:'entry',role:'user',text:'Look at this',images});let user=dom.window.document.querySelector('.user');assert.equal(user.firstElementChild.className,'sent-images');assert.equal(user.querySelector('img').alt,'screen.png');assert.equal(user.querySelector('.content').textContent,'Look at this');user.querySelector('.sent-image').click();assert.equal(sent.at(-1).id,'image-id');assert.equal(sent.at(-1).type,'openSentImage');
+ emit({type:'restore',mode:'manual',busy:false,transcript:[{role:'user',text:'Look at this',images}]});assert.equal(dom.window.document.querySelectorAll('.user img').length,1);dom.window.close();
+});
+test('sent images persist separately from transcript metadata and deduplicate safely',async()=>{
+ const {mkdtemp,readdir}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const path=await import('node:path');const {saveImages,validId}=await import('../sent-images.cjs');
+ const dir=await mkdtemp(path.join(tmpdir(),'strata-sent-images-'));const first=await saveImages(dir,[{name:'screen.png',url:png}]);const again=await saveImages(dir,[{name:'second.png',url:png}]);assert.equal(first[0].id,again[0].id);assert.equal((await readdir(dir)).length,1);assert.equal(first[0].url,undefined);assert.equal(validId('../outside.png'),false);assert.equal(validId(first[0].id),true);assert.equal((await readFile(path.join(dir,first[0].id))).toString('base64'),png.split(',')[1]);
+});

@@ -95,7 +95,9 @@ function activate(context) {
   const pending = new Map();
   const output = vscode.window.createOutputChannel('Strata Harness');
   context.subscriptions.push(output);
-  const post = m => view?.webview.postMessage(m);
+  const imageDir=path.join(context.globalStorageUri.fsPath,'sent-images');
+  const imageRefs=images=>(images||[]).filter(i=>require('./sent-images.cjs').validId(i.id)).map(i=>({...i,url:view.webview.asWebviewUri(vscode.Uri.file(path.join(imageDir,i.id))).toString()}));
+  const post = m => {if(!view)return;if(m.type==='entry'&&m.images)m={...m,images:imageRefs(m.images)};if(m.type==='restore')m={...m,transcript:m.transcript.map(e=>e.images?{...e,images:imageRefs(e.images)}:e)};return view.webview.postMessage(m);};
   const connections=new (require('./saved-connections.cjs').SavedConnections)(context.secrets);
   let connectionCache;
   const savedConnection=()=>connectionCache;
@@ -194,7 +196,7 @@ function activate(context) {
   async function deleteChat(id){
     if(busy)throw Error('Stop the current turn before deleting chats');
     const item=store.list().find(c=>c.id===id);if(!item)throw Error('Chat not found');
-    const answer=await vscode.window.showWarningMessage(`Delete “${item.title}” from saved chats?`,{modal:true,detail:'This removes the saved chat and transcript from this workspace. Project files are not deleted. Local change snapshots and harness session logs may remain on the host.'},'Delete');
+    const answer=await vscode.window.showWarningMessage(`Delete “${item.title}” from saved chats?`,{modal:true,detail:'This removes the saved chat and transcript from this workspace. Project files are not deleted. Local change snapshots, sent image files and harness session logs may remain on the host.'},'Delete');
     if(answer!=='Delete')return;
     if(busy)throw Error('Stop the current turn before deleting chats');
     busy=true;post({type:'busy',value:true});
@@ -218,12 +220,12 @@ function activate(context) {
     const name=await vscode.window.showInputBox({title:'Rename chat',value:store.list().find(item=>item.id===id)?.title,validateInput:value=>!value.trim()?'Enter a title':value.length>120?'Use 120 characters or fewer':undefined});
     if(name?.trim()){await store.rename(id,name.trim());chatMetadata();}
   }
-  function add(role, text) {
+  function add(role, text, images) {
     const timestamp=Date.now();
-    transcript.push({role, text, timestamp});
+    transcript.push({role, text, timestamp,...(images?.length?{images}:{})});
     // UI transcript is bounded; the full durable conversation remains in the harness.
     while (transcript.length > 100 || (transcript.length > 1 && transcript.reduce((n, x) => n + x.text.length, 0) > 250000)) transcript.shift();
-    post({type: 'entry', role, text, timestamp}); persist();
+    post({type: 'entry', role, text, timestamp,images}); persist();
   }
   function receive(m) {
     if (m.type === 'ready') return;
@@ -336,7 +338,7 @@ function activate(context) {
     post({type: 'selection', text: `\nSelected context from ${vscode.workspace.asRelativePath(editor.document.uri)}:${editor.selection.start.line + 1}\n\`\`\`\n${selected}\n\`\`\`\n`});
   })));
   context.subscriptions.push(vscode.window.registerWebviewViewProvider('strata.chat', {resolveWebviewView(v) {
-    view = v; v.webview.options = {enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')]};
+    view = v; v.webview.options = {enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media'),vscode.Uri.file(imageDir)]};
     const nonce = randomUUID().replaceAll('-', '');
     const script = v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.js'));
     v.webview.html = require('./ui.cjs')({nonce, script,
@@ -346,6 +348,10 @@ function activate(context) {
     v.webview.onDidReceiveMessage(safe(async m => {
       if (m.type === 'loaded') {await getConnection();connectionInfo();modelInfo();persist();chatMetadata();post({type:'page',page:transcript.length?'chat':'chats'});post({type:'restore',transcript,busy,turnStartedAt,mode:permissionMode}); post({type:'contextInfo',...contextInfo}); for (const tool of pending.values()) post({type:'tool',tool});if(!offeredSetup&&!savedConnection()){offeredSetup=true;await connect();}}
       else if (m.type === 'profiles') await chooseProfile();
+      else if(m.type==='openSentImage'){
+        if(!require('./sent-images.cjs').validId(m.id)||!transcript.some(e=>e.images?.some(i=>i.id===m.id)))throw Error('Image is not in this chat');
+        await vscode.commands.executeCommand('vscode.open',vscode.Uri.file(path.join(imageDir,m.id)));
+      }
       else if(m.type==='openToolFile'){
         if(typeof m.id!=='string')throw Error('Invalid file action');
         const tool=transcript.filter(e=>e.role==='tool').map(e=>JSON.parse(e.text)).findLast(t=>t.id===m.id);
@@ -411,7 +417,8 @@ function activate(context) {
         try {await start();if(images.length&&!runtimeVision)throw Error('Restart the harness to apply the Vision setting, then resend.');
           reportedChanges=new Set();
           if(m.text.trim()!=='/compact'){post({type:'status',text:'Saving workspace checkpoint…'});try{turnSnapshot=await changeStore.scan(vscode.workspace.workspaceFolders[0].uri.fsPath,dirtyPaths());}catch(e){add('notice','Undo checkpoint unavailable: '+e.message);}}
-          add('user',m.text+(images.length?'\n\nAttached images: '+images.map(i=>i.name).join(', '):'')); turnStartedAt=Date.now();post({type:'turnStarted',startedAt:turnStartedAt});write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
+          const sentImages=await require('./sent-images.cjs').saveImages(imageDir,images);
+          add('user',m.text,sentImages); turnStartedAt=Date.now();post({type:'turnStarted',startedAt:turnStartedAt});write({type:'send',chatId,text:transcript.some(e=>e.role==='changes'&&JSON.parse(e.text).undone)&&m.text.trim()!=='/compact'?'Workspace note: Earlier file changes in this chat were undone. Re-read current files; restored editor text may still be unsaved.\n\n'+m.text:m.text,mode:m.mode,images});post({type:'sendAccepted',attachmentIds:m.attachmentIds,text:m.draftText});}
         catch (e) {turnStartedAt=undefined;turnSnapshot=undefined;busy=false;post({type:'busy',value:false});throw e;}
       } else if (m.type === 'stop') {write({type:'stop',chatId}); post({type:'status',text:'Stopping…'});}
       else if (m.type === 'approve') {

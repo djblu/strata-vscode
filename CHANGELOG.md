@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.26 — 2026-10-28
+
+- Show sent images as right-aligned thumbnails above the user message, with click-to-open in VS Code.
+- Persist image files separately from transcript metadata so new sent-image previews survive reopening chats.
+
 ## 0.1.25 — 2026-10-26
 
 - Remove height limits and internal scrolling from parent activity groups such as Ran commands. Individual tool dropdowns and output remain bounded.

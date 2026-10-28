@@ -77,7 +77,7 @@ npm run package
 
 The automated tests cover invalid permission modes, concurrency, rejected approvals, streaming, cancellation, shutdown and 1,000-chunk batched rendering. Live checks passed for a Swift response, resuming the same session across adapter restarts, an approved file write and cancellation of a pending write; the cancelled file was not created. Live smoke checks use an isolated workspace, not production files. Windows webview/Remote SSH UI interaction must still be checked in VS Code; passing adapter tests does not prove the UI.
 
-This is an initial private preview, not a Marketplace release. There is no image attachment support or custom inline edit-diff UI yet. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
+This is an initial private preview, not a Marketplace release. Image attachments and per-turn change summaries are supported. Use native Source Control diffs for review. Long-context compaction has not been stress-tested through this extension.
 
 The + menu inserts context into your draft for review before sending. File/folder references let the harness read relevant contents on demand; Git changes include staged and unstaged diffs, exclude untracked contents, and are limited to 100,000 characters. Compaction shows a shimmering status while running (respects reduced motion), followed by a confirmation in chat when the harness reports success.
 
@@ -99,7 +99,7 @@ Responses render Markdown pipe tables with headers, inline formatting, column al
 
 ## Files and pictures
 
-Files and folders selected from the + menu appear as removable cards above the input. They remain workspace references that the harness reads on demand. Choose **+ → Images** for local PNG, JPEG or WebP pictures, or paste a screenshot into the message box. Pictures show thumbnails; limits are four images, 5 MB each and 16 MB total. Attachments are kept in the draft when setup or validation fails and cleared when the send is accepted. Draft thumbnails are not saved across reloads; the transcript records sent image names, while the harness receives image data.
+Files and folders selected from the + menu appear as removable cards above the input. They remain workspace references that the harness reads on demand. Choose **+ → Images** for local PNG, JPEG or WebP pictures, or paste a screenshot into the message box. Pictures show thumbnails; limits are four images, 5 MB each and 16 MB total. Attachments are kept in the draft when setup or validation fails and cleared when the send is accepted. Draft thumbnails are not saved across reloads. Sent images appear above the user message as right-aligned thumbnails; click to open in VS Code. Images are saved separately in private extension-host storage (sent-images, capped at 512 MiB), while the transcript stores references. The harness receives the original image data. Deleting a chat leaves saved image files on the host. Older name-only messages cannot reconstruct thumbnails.
 
 Image input requires a vision-capable model served through the supported OpenAI chat API. **Strata: Vision** is enabled by default. You can disable it for a text-only endpoint; restart the harness (or reload VS Code) after changing it. This setting allows image input but does not add vision to a text-only model. The image pipeline is tested against a local mock API; actual image understanding depends on your model and serving configuration.
 
