@@ -342,6 +342,7 @@ function activate(context) {
     const nonce = randomUUID().replaceAll('-', '');
     const script = v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.js'));
     v.webview.html = require('./ui.cjs')({nonce, script,
+      pdf: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'pdf-attachments.mjs')),
       highlight: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'code-blocks.js')),
       style: v.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', 'chat.css')),
       source: v.webview.cspSource});

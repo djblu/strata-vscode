@@ -18,11 +18,26 @@ function addImages(files){imageReads=imageReads.then(async()=>{for(const file of
  if(chat===activeChat)addAttachment({name:file.name||'Screenshot.png',url,size:file.size});
  }}).catch(()=>{$('status').textContent='Could not read the image.';});}
 // The webview file input opens on the client PC, including in Remote SSH windows.
-let localFileReads=Promise.resolve();
-function addLocalFiles(files){const chat=activeChat;localFileReads=localFileReads.then(async()=>{
+let localFileReads=Promise.resolve(),localFilesPending=0;
+function addLocalFiles(files){localFilesPending++;const chat=activeChat;localFileReads=localFileReads.then(async()=>{
  for(const file of files){
   if(chat!==activeChat)return;
   if(/^image\//.test(file.type)){addImages([file]);await imageReads;continue;}
+  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){
+   if(file.size>20*1024*1024){$('status').textContent='PDF files must be 20 MB or smaller.';continue;}
+   $('status').textContent='Reading PDF '+file.name+'…';
+   try{
+    if(!window.PdfAttachments)throw Error('PDF reader is not ready. Wait a moment and select the file again.');
+    const bytes=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(new Uint8Array(reader.result));reader.onerror=reject;reader.readAsArrayBuffer(file);});
+    const result=await window.PdfAttachments.extractPDF(bytes);
+    if(chat!==activeChat)return;
+    const text='\nAttached PDF: '+JSON.stringify(file.name)+' ('+result.pages+' pages; extracted text only)\n'+result.warning+'\n'+result.text+'\nEnd of PDF: '+JSON.stringify(file.name)+'\n';
+    const size=new TextEncoder().encode(text).length;
+    if(attachments.reduce((n,a)=>n+(a.localBytes||0),0)+size>200000)throw Error('Extracted PDF and local text attachments exceed 200 KB. Use a smaller document.');
+    addAttachment({name:file.name,localBytes:size,text});$('status').textContent=result.warning;
+   }catch(error){if(chat===activeChat)$('status').textContent='Cannot attach '+file.name+': '+error.message;}
+   continue;
+  }
   if(file.size>100000){$('status').textContent='Local text files must be 100 KB or smaller.';continue;}
   try{
    const bytes=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(new Uint8Array(reader.result));reader.onerror=reject;reader.readAsArrayBuffer(file);});
@@ -32,9 +47,9 @@ function addLocalFiles(files){const chat=activeChat;localFileReads=localFileRead
    if(chat!==activeChat)return;
    if(attachments.reduce((n,a)=>n+(a.localBytes||0),0)+file.size>200000){$('status').textContent='Local text attachments are limited to 200 KB per message.';continue;}
    addAttachment({name:file.name,localBytes:file.size,text:'\nAttached local file (content snapshot; not a path on the server): '+JSON.stringify(file.name)+'\n'+text+'\nEnd of local file: '+JSON.stringify(file.name)+'\n'});
-  }catch{$('status').textContent='Cannot attach '+file.name+': use UTF-8 text/code or PNG, JPEG and WebP images. PDF, Office and binary files are not supported.';}
+  }catch{$('status').textContent='Cannot attach '+file.name+': use UTF-8 text/code or PNG, JPEG and WebP images. Use the PDF reader for PDFs; Office and other binary files are not supported.';}
  }
-});}
+}).finally(()=>{localFilesPending--;});}
 $('local-file-picker').onchange=()=>{addLocalFiles(Array.from($('local-file-picker').files));$('local-file-picker').value='';};
 $('image-picker').onchange=()=>{addImages(Array.from($('image-picker').files));$('image-picker').value='';};
 $('prompt').addEventListener('paste',event=>{const files=Array.from(event.clipboardData?.items||[]).filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile()).filter(Boolean);if(files.length){event.preventDefault();addImages(files);}});
@@ -341,7 +356,7 @@ $('permission-menu').addEventListener('keydown',e=>{
 });
 $('mode').addEventListener('change',()=>{showPermission($('mode').value);vscode.postMessage({type:'permissionMode',mode:$('mode').value});});
 
-$('send').onclick=()=>{const draftText=$('prompt').value;if(working||(!draftText.trim()&&!attachments.length))return;const text=(draftText||'Please review the attached items.')+attachments.filter(a=>a.text).map(a=>a.text).join('');follow=true;vscode.postMessage({type:'send',text,draftText,mode:$('mode').value,images:attachments.filter(a=>a.url).map(a=>({name:a.name,url:a.url})),attachmentIds:attachments.map(a=>a.id)});endEdit();$('compact-command').hidden=true;};
+$('send').onclick=()=>{if(localFilesPending){$('status').textContent='Wait for the attached files to finish processing before sending.';return;}const draftText=$('prompt').value;if(working||(!draftText.trim()&&!attachments.length))return;const text=(draftText||'Please review the attached items.')+attachments.filter(a=>a.text).map(a=>a.text).join('');follow=true;vscode.postMessage({type:'send',text,draftText,mode:$('mode').value,images:attachments.filter(a=>a.url).map(a=>({name:a.name,url:a.url})),attachmentIds:attachments.map(a=>a.id)});endEdit();$('compact-command').hidden=true;};
 $('prompt').addEventListener('keydown',e=>{if(e.key==='Tab'&&!$('compact-command').hidden){e.preventDefault();$('prompt').value='/compact';commandSuggestion();return;}if(e.key==='Escape'){$('compact-command').hidden=true;return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!working){if(!$('compact-command').hidden)$('prompt').value='/compact';$('send').click();}}});
 for(const type of ['new','stop','key','changes','chats','rename','model-settings','connect','profiles'])$(type).onclick=()=>vscode.postMessage({type});
 function closeAddMenu(){$('add-menu').hidden=true;$('add-context').setAttribute?.('aria-expanded','false');}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.28 — 2026-10-28
+
+- Add PDF uploads through Files from your PC with bundled PDF.js text extraction and page labels.
+- Explain scanned/empty PDF and password/size limitations; prevent sending before local files finish processing.
+
+
 ## 0.1.27 — 2026-10-28
 
 - Add Files from your PC to the attachment menu, alongside workspace/server files.

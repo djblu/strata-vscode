@@ -127,4 +127,8 @@ New-file detection uses pre-turn directory listings: an incomplete scan elsewher
 
 ### Attach files from your PC
 
-Use **+ → Files from your PC** to select local UTF-8 text/code files or supported images, including in Remote SSH windows. Text is sent as a content snapshot, not a server path; the original PC file is not editable by the remote harness. Limits: 100 KB per text file, 200 KB total text attachments per message. PDF, Office and binary documents are not supported. Use **Files and folders** for workspace/server references.
+Use **+ → Files from your PC** to select local UTF-8 text/code files or supported images, including in Remote SSH windows. Text is sent as a content snapshot, not a server path; the original PC file is not editable by the remote harness. Limits: 100 KB per text file, 200 KB total text attachments per message. PDF uploads extract text with page labels. Office and other binary documents are not supported. Use **Files and folders** for workspace/server references.
+
+### PDF attachments
+
+Choose **+ → Files from your PC** and select a PDF. The bundled PDF.js reader extracts text locally in the VS Code webview before sending it to the model. No separate PDF software or endpoint PDF support is needed. Limits: 20 MB, 200 pages, 180,000 extracted characters, and 200 KB combined local text context per message. Password-protected PDFs must be unlocked first. Images, charts and layout are not sent; scanned PDFs need OCR (not included) or page screenshots attached to a vision-capable model. Extracted text is saved in chat history; the original PDF is not stored or editable by the harness.
