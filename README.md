@@ -131,4 +131,8 @@ Use **+ → Files from your PC** to select local UTF-8 text/code files or suppor
 
 ### PDF attachments
 
-Choose **+ → Files from your PC** and select a PDF. The bundled PDF.js reader extracts text locally in the VS Code webview before sending it to the model. No separate PDF software or endpoint PDF support is needed. Limits: 20 MB, 200 pages, 180,000 extracted characters, and 200 KB combined local text context per message. Password-protected PDFs must be unlocked first. Images, charts and layout are not sent; scanned PDFs need OCR (not included) or page screenshots attached to a vision-capable model. Extracted text is saved in chat history; the original PDF is not stored or editable by the harness.
+Choose **+ → Files from your PC** and select a PDF. A preview lets you browse and select pages (for example `1, 3-4`). Selected pages are rendered as PNG images at 2400 pixels on their longest side and attached alongside page-labelled text. The message explicitly lists selected and omitted pages. Image-only/scanned pages can be interpreted by a vision-capable model; OCR is not performed. The endpoint must support vision, and Strata: Vision must be enabled.
+
+Limits: 20 MB and 200 source pages; up to four selected pages/images in a message, sharing the existing image allowance (5 MB each, 16 MB total). Local extracted text shares a 200 KB budget. Exceeding a limit produces an error, without silently dropping pages. Use multiple messages for larger documents. Password-protected PDFs must be unlocked first.
+
+The importer preserves the full selected page visually, but does not guarantee that every detail will be readable or correctly interpreted. Tiny labels may need close-up screenshots. Automatic detail crops, OCR, persistent original PDF storage and retrieval of pages from previous uploads are not implemented yet. Rendered page images and extracted text are retained with the chat; originals are not retained.

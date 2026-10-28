@@ -29,12 +29,16 @@ function addLocalFiles(files){localFilesPending++;const chat=activeChat;localFil
    try{
     if(!window.PdfAttachments)throw Error('PDF reader is not ready. Wait a moment and select the file again.');
     const bytes=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(new Uint8Array(reader.result));reader.onerror=reject;reader.readAsArrayBuffer(file);});
-    const result=await window.PdfAttachments.extractPDF(bytes);
     if(chat!==activeChat)return;
-    const text='\nAttached PDF: '+JSON.stringify(file.name)+' ('+result.pages+' pages; extracted text only)\n'+result.warning+'\n'+result.text+'\nEnd of PDF: '+JSON.stringify(file.name)+'\n';
-    const size=new TextEncoder().encode(text).length;
-    if(attachments.reduce((n,a)=>n+(a.localBytes||0),0)+size>200000)throw Error('Extracted PDF and local text attachments exceed 200 KB. Use a smaller document.');
-    addAttachment({name:file.name,localBytes:size,text});$('status').textContent=result.warning;
+    const items=await window.PdfAttachments.importPDF(bytes,file.name,{
+     maxImages:Math.min(4-attachments.filter(a=>a.url).length,20-attachments.length),
+     maxBytes:16*1024*1024-attachments.reduce((n,a)=>n+(a.size||0),0),
+     maxTextBytes:200000-attachments.reduce((n,a)=>n+(a.localBytes||0),0)});
+    if(chat!==activeChat)return;
+    if(items.length+attachments.filter(a=>a.url).length>4||items.length+attachments.length>20)throw Error('Attachments changed during PDF processing. Please add the PDF again.');
+    if([...attachments,...items].reduce((n,a)=>n+(a.size||0),0)>16*1024*1024||[...attachments,...items].reduce((n,a)=>n+(a.localBytes||0),0)>200000)throw Error('Attachments changed during PDF processing and exceed the budget. Please add the PDF again.');
+    for(const item of items)addAttachment(item);
+    $('status').textContent=items.length?'Attached '+items.length+' PDF page(s) as images and text. Unselected pages are not included.':'PDF attachment cancelled';
    }catch(error){if(chat===activeChat)$('status').textContent='Cannot attach '+file.name+': '+error.message;}
    continue;
   }
@@ -306,7 +310,7 @@ window.addEventListener('message',({data:m})=>{
   else if(m.type==='chatMetadata'){chatItems=m.chats;activeChat=m.activeId;renderChats();showPage(page);}
   else if(m.type==='permissionMode')showPermission(m.mode);
   else if(m.type==='turnStarted')startWorkTimer(m.startedAt);
-  else if(m.type==='restore'){activityTail=undefined;clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp,e.images);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
+  else if(m.type==='restore'){window.PdfAttachments?.cancelPDFImport?.();activityTail=undefined;clearThinking();stopWorkTimer();if(last?.formatTimer)clearTimeout(last.formatTimer);showPermission(m.mode);attachments=[];drawAttachments();endEdit();$('compaction').hidden=true;closeAddMenu();$('prompt').value='';for(const card of cards.values())if(card.commandTimer)clearTimeout(card.commandTimer);history.replaceChildren();cards.clear();last=undefined;follow=true;busy(m.busy);for(const e of m.transcript)entry(e.role,e.text,e.timestamp,e.images);if(!m.busy)clearThinking();if(m.busy&&Number.isFinite(m.turnStartedAt))startWorkTimer(m.turnStartedAt);scroll();}
   else if(m.type==='entry')entry(m.role,m.text,m.timestamp,m.images);
   else if(m.type==='changeUpdated'){const card=Array.from(history.children).find(e=>e.dataset?.changeId===m.summary.id);if(card)changeCard(m.summary,card);}
   else if(m.type==='chunk'&&m.role==='reasoning'){flush();entry('reasoning','');}

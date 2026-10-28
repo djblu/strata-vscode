@@ -53,12 +53,12 @@ test('PC file picker attaches text contents, rejects binary and keeps workspace 
 test('PDF picker waits for extraction and sends extracted content as a document attachment',async()=>{
  const dom=new JSDOM(html({nonce:'x',source:'self'}),{runScripts:'outside-only'});const sent=[];
  dom.window.TextEncoder=TextEncoder;dom.window.acquireVsCodeApi=()=>({postMessage:m=>sent.push(m)});
- let finish;dom.window.PdfAttachments={extractPDF:()=>new Promise(resolve=>{finish=resolve;})};
+ let finish;dom.window.PdfAttachments={importPDF:()=>new Promise(resolve=>{finish=resolve;})};
  dom.window.eval(await readFile(new URL('../media/chat.js',import.meta.url),'utf8'));const $=id=>dom.window.document.getElementById(id);
  Object.defineProperty($('local-file-picker'),'files',{value:[new dom.window.File(['%PDF-1.4'],'report.pdf',{type:'application/pdf'})]});$('local-file-picker').onchange();
  $('prompt').value='Summarise this';$('send').click();assert.ok(!sent.some(m=>m.type==='send'));
  for(let i=0;i<100&&!finish;i++)await new Promise(r=>setTimeout(r,5));
- finish({text:'[Page 1]\nReport contents',pages:1,warning:'Text only'});
+ finish([{name:'report.pdf · page 1',text:'[Page 1]\nReport contents',url:png,size:8}]);
  for(let i=0;i<100&&!$('attachments').children.length;i++)await new Promise(r=>setTimeout(r,5));
- assert.equal($('attachments').querySelector('.attachment-name').textContent,'report.pdf');$('send').click();assert.match(sent.at(-1).text,/Report contents/);assert.equal(sent.at(-1).images.length,0);dom.window.close();
+ assert.equal($('attachments').querySelector('.attachment-name').textContent,'report.pdf · page 1');$('send').click();assert.match(sent.at(-1).text,/Report contents/);assert.equal(sent.at(-1).images.length,1);dom.window.close();
 });

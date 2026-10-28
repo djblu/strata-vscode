@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.29 — 2026-10-28
+
+- Preview PDFs, browse pages and explicitly select pages to attach.
+- Send selected pages as 2400-pixel PNGs plus page-labelled text, including scanned pages.
+- Report selected/omitted pages and enforce shared image/text limits without silent truncation.
+- Bundle PDF fonts and image decoder assets for visual rendering.
+
+
 ## 0.1.28 — 2026-10-28
 
 - Add PDF uploads through Files from your PC with bundled PDF.js text extraction and page labels.
